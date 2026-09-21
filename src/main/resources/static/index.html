@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conway's Game of Life</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="shell">
+        <header class="masthead">
+            <div>
+                <p class="kicker">Cellular automaton · 1970</p>
+                <h1>Conway's Game of Life</h1>
+            </div>
+            <p class="lede">A living cell survives with two or three neighbors. A dead cell is born with exactly three. The torus wraps at the edges. Rules run on the Spring Boot server.</p>
+        </header>
+
+        <section class="stage">
+            <div class="board-frame">
+                <canvas id="board" width="1152" height="672" aria-label="Game of Life grid"></canvas>
+                <p class="hint" id="hint">Click or drag to paint cells. Choose a pattern, then click the board to stamp it.</p>
+            </div>
+
+            <aside class="panel">
+                <div class="stats">
+                    <div>
+                        <span class="label">Generation</span>
+                        <strong id="generation">0</strong>
+                    </div>
+                    <div>
+                        <span class="label">Live cells</span>
+                        <strong id="live">0</strong>
+                    </div>
+                    <div>
+                        <span class="label">Grid</span>
+                        <strong id="size">42 × 72</strong>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="play" class="primary" type="button">Play</button>
+                    <button id="step" type="button">Step</button>
+                    <button id="clear" type="button">Clear</button>
+                    <button id="random" type="button">Random</button>
+                </div>
+
+                <label class="slider">
+                    <span>Tick speed</span>
+                    <input id="speed" type="range" min="40" max="600" step="10" value="140">
+                    <em id="speedValue">140 ms</em>
+                </label>
+
+                <label class="slider">
+                    <span>Random density</span>
+                    <input id="density" type="range" min="0.05" max="0.55" step="0.01" value="0.28">
+                    <em id="densityValue">28%</em>
+                </label>
+
+                <div class="patterns">
+                    <h2>Patterns</h2>
+                    <p class="sub">Select one, then click the board to place it.</p>
+                    <div id="patternList" class="pattern-list"></div>
+                    <button id="cancelPattern" class="ghost" type="button" hidden>Cancel stamp</button>
+                </div>
+            </aside>
+        </section>
+    </div>
+    <script src="/js/app.js"></script>
+</body>
+</html>

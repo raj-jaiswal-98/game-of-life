@@ -1,0 +1,19 @@
+# Build context only — JDK/Maven caches and docs stay on the host
+.git
+.tools
+.idea
+.vscode
+target
+*.iml
+*.log
+docs
+scripts
+README.md
+.dockerignore
+Dockerfile
+compose.yaml
+
+# Frontend dependencies installed fresh inside Docker by frontend-maven-plugin
+frontend/node_modules/
+frontend/node/
+frontend/.vite/

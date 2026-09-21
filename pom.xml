@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.gameoflife</groupId>
+    <artifactId>game-of-life</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Conway's Game of Life</name>
+    <description>Classic Conway's Game of Life with Spring Boot and a canvas UI</description>
+
+    <properties>
+        <java.version>21</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+                frontend-maven-plugin: installs Node + npm, then runs the Vite
+                build so that frontend/src/app.ts is compiled to
+                src/main/resources/static/js/app.js before the jar is packaged.
+
+                Node is downloaded into frontend/node/ by the plugin itself, so
+                neither the host machine nor the Docker image needs Node pre-installed.
+            -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>1.15.1</version>
+                <configuration>
+                    <workingDirectory>frontend</workingDirectory>
+                    <installDirectory>frontend</installDirectory>
+                </configuration>
+                <executions>
+                    <!-- 1. Download Node v22 LTS into frontend/node/ -->
+                    <execution>
+                        <id>install-node-and-npm</id>
+                        <goals><goal>install-node-and-npm</goal></goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <nodeVersion>v22.14.0</nodeVersion>
+                        </configuration>
+                    </execution>
+                    <!-- 2. npm install — installs vite + typescript -->
+                    <execution>
+                        <id>npm-install</id>
+                        <goals><goal>npm</goal></goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <arguments>install</arguments>
+                        </configuration>
+                    </execution>
+                    <!-- 3. npm run build — tsc type-check + vite bundle -->
+                    <execution>
+                        <id>npm-build</id>
+                        <goals><goal>npm</goal></goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

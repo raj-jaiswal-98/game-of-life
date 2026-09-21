@@ -1,0 +1,20 @@
+.agents/
+CLAUDE.md
+AGENTS.md
+.cursor/
+docs/
+.tools/
+target/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+*.log
+.DS_Store
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/node/
+frontend/.vite/
