@@ -112,10 +112,22 @@ uniform int u_wallEnabled;
 uniform int u_ghostCount;
 uniform vec2 u_ghostOrigin;
 uniform vec2 u_ghostOffsets[64];
+uniform vec2 u_pan;
+uniform float u_zoom;
 out vec4 fragColor;
 
 void main() {
-    vec2 gridUV = vec2(v_uv.x, 1.0 - v_uv.y);
+    // Zoom & pan viewport transform
+    vec2 centeredUV = v_uv - 0.5;
+    vec2 zoomedUV = centeredUV / u_zoom + 0.5 + u_pan;
+
+    if (zoomedUV.x < 0.0 || zoomedUV.x > 1.0 || zoomedUV.y < 0.0 || zoomedUV.y > 1.0) {
+        // Void canvas outside active grid
+        fragColor = vec4(11.0 / 255.0, 10.0 / 255.0, 8.0 / 255.0, 1.0);
+        return;
+    }
+
+    vec2 gridUV = vec2(zoomedUV.x, 1.0 - zoomedUV.y);
     vec2 cellCoord = floor(gridUV * u_resolution);
     bool isWallCell = (cellCoord.x < 2.0 || cellCoord.x >= u_resolution.x - 2.0 ||
                        cellCoord.y < 2.0 || cellCoord.y >= u_resolution.y - 2.0);
@@ -251,6 +263,9 @@ export class WebGLEngine {
     public cols: number;
     public colorMode: number = 0; // 0: Classic, 1: Age Heatmap, 2: Cyberpunk, 3: Thermal
     public wallMode: boolean = false;
+    public panX: number = 0;
+    public panY: number = 0;
+    public zoom: number = 1.0;
 
     // Ghost pattern preview
     private ghostCount: number = 0;
@@ -272,6 +287,8 @@ export class WebGLEngine {
     private dispGhostCountLoc!: WebGLUniformLocation;
     private dispGhostOriginLoc!: WebGLUniformLocation;
     private dispGhostOffsetsLoc!: WebGLUniformLocation;
+    private dispPanLoc!: WebGLUniformLocation;
+    private dispZoomLoc!: WebGLUniformLocation;
 
     constructor(canvas: HTMLCanvasElement, rows: number, cols: number) {
         const gl = canvas.getContext('webgl2', {
@@ -404,6 +421,12 @@ export class WebGLEngine {
         this.currentIdx = nextIdx;
     }
 
+    public setPanZoom(panX: number, panY: number, zoom: number): void {
+        this.panX = panX;
+        this.panY = panY;
+        this.zoom = Math.max(0.5, Math.min(zoom, 32.0));
+    }
+
     public render(canvasWidth: number, canvasHeight: number, showGrid = true): void {
         const gl = this.gl;
 
@@ -422,6 +445,8 @@ export class WebGLEngine {
         gl.uniform1i(this.dispGhostCountLoc, this.ghostCount);
         gl.uniform2f(this.dispGhostOriginLoc, this.ghostOrigin[0], this.ghostOrigin[1]);
         gl.uniform2fv(this.dispGhostOffsetsLoc, this.ghostOffsets);
+        gl.uniform2f(this.dispPanLoc, this.panX, this.panY);
+        gl.uniform1f(this.dispZoomLoc, this.zoom);
 
         gl.bindVertexArray(this.vao);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -685,6 +710,8 @@ export class WebGLEngine {
         this.dispGhostCountLoc = gl.getUniformLocation(this.displayProgram, 'u_ghostCount')!;
         this.dispGhostOriginLoc = gl.getUniformLocation(this.displayProgram, 'u_ghostOrigin')!;
         this.dispGhostOffsetsLoc = gl.getUniformLocation(this.displayProgram, 'u_ghostOffsets')!;
+        this.dispPanLoc = gl.getUniformLocation(this.displayProgram, 'u_pan')!;
+        this.dispZoomLoc = gl.getUniformLocation(this.displayProgram, 'u_zoom')!;
     }
 
     private createTexture(): WebGLTexture {
