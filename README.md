@@ -7,6 +7,12 @@ An interactive implementation of Conway's Game of Life: a **Spring Boot 3** serv
 
 ---
 
+
+
+https://github.com/user-attachments/assets/26bb1215-743d-4b4e-8521-c6d81fe6f998
+
+
+
 ## Table of Contents
 
 1. [The Science Behind the Game](#1-the-science-behind-the-game)
