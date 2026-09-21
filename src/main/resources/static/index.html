@@ -136,16 +136,12 @@
                 </div>
 
                 <div class="setting-card">
-                    <div class="toggle-row">
-                        <div class="toggle-text">
-                            <label class="label" for="wallToggle">2-Cell Wall Barrier</label>
-                            <span class="sublabel">Absorbing collision barrier (no wrap-around)</span>
-                        </div>
-                        <label class="switch" title="Toggle 2-cell boundary collision wall (W)">
-                            <input type="checkbox" id="wallToggle">
-                            <span class="slider-round"></span>
-                        </label>
-                    </div>
+                    <label class="label" for="boundaryModeSelect">Boundary Topology</label>
+                    <select id="boundaryModeSelect" class="custom-select">
+                        <option value="0">🌐 Toroidal (Infinite Wrap-around)</option>
+                        <option value="1">🧱 Absorbing Wall (2-Cell Dead Layer)</option>
+                        <option value="2" selected>⚡ Elastic Wall (Momentum Rebound)</option>
+                    </select>
                 </div>
 
                 <div class="setting-card">
@@ -159,24 +155,30 @@
                 </div>
 
                 <div class="setting-card">
-                    <label class="label" for="gridSizeSelect">Grid Resolution</label>
+                    <div class="slider-header">
+                        <label class="label" for="gridSizeSelect">Grid Resolution</label>
+                        <span id="screenRatioBadge" class="ratio-badge" title="Click to auto-fit grid to current screen ratio">16:9 Screen Fit</span>
+                    </div>
                     <select id="gridSizeSelect" class="custom-select">
-                        <option value="42x72" selected>42 × 72 (Classic)</option>
-                        <option value="128x128">128 × 128 (Medium)</option>
-                        <option value="256x256">256 × 256 (Large)</option>
-                        <option value="512x512">512 × 512 (HD - 262K cells)</option>
-                        <option value="1024x1024">1024 × 1024 (Ultra - 1.05M cells)</option>
-                        <option value="2048x2048">2048 × 2048 (Mega - 4.19M cells)</option>
+                        <optgroup id="dynamicRatioGroup" label="📐 Matched to Screen (Square Cells)">
+                            <option value="42x72" selected>Studio Standard (42 × 72)</option>
+                        </optgroup>
+                        <optgroup label="🔲 Fixed & Square Presets">
+                            <option value="128x128">Square HD (128 × 128)</option>
+                            <option value="256x256">Square 2K (256 × 256)</option>
+                            <option value="512x512">Square 4K (512 × 512)</option>
+                            <option value="1024x1024">Square 1M (1024 × 1024)</option>
+                        </optgroup>
                     </select>
                 </div>
 
                 <div class="setting-card">
-                    <label class="label" for="substepsSelect">Hardware Multiplier (Steps/Frame)</label>
+                    <label class="label" for="substepsSelect">Substeps per Frame</label>
                     <select id="substepsSelect" class="custom-select">
-                        <option value="1" selected>1× (V-Sync Display Hz)</option>
-                        <option value="2">2× (Double Speed)</option>
-                        <option value="5">5× (Turbo Speed)</option>
-                        <option value="10">10× (Extreme GPU Limit)</option>
+                        <option value="1" selected>1 Step / Frame</option>
+                        <option value="2">2 Steps / Frame (2×)</option>
+                        <option value="5">5 Steps / Frame (5×)</option>
+                        <option value="10">10 Steps / Frame (10× Ultra)</option>
                     </select>
                 </div>
 
@@ -200,13 +202,17 @@
             <!-- Tab 2: Pattern Studio -->
             <div id="tab-patterns" class="tab-pane">
                 <div class="pattern-studio-header">
-                    <input id="patternSearch" type="text" class="pattern-search" placeholder="Search patterns...">
+                    <div class="pattern-search-row">
+                        <input id="patternSearch" type="text" class="pattern-search" placeholder="Search patterns...">
+                        <button id="openImportModalBtn" class="btn-import-pattern" type="button" title="Import custom pattern (RLE, Plaintext, Coordinates)">+ Import</button>
+                    </div>
                     <div class="category-pills">
                         <button class="cat-pill active" type="button" data-cat="all">All</button>
                         <button class="cat-pill" type="button" data-cat="spaceships">Spaceships</button>
                         <button class="cat-pill" type="button" data-cat="guns">Guns</button>
                         <button class="cat-pill" type="button" data-cat="oscillators">Oscillators</button>
                         <button class="cat-pill" type="button" data-cat="still">Still Lifes</button>
+                        <button class="cat-pill" type="button" data-cat="custom">Custom</button>
                     </div>
                 </div>
 
@@ -303,6 +309,49 @@
                 <div class="shortcut-item"><kbd>0</kbd> <span>Reset Zoom to Fit</span></div>
                 <div class="shortcut-item"><kbd>F</kbd> <span>Toggle Fullscreen Mode</span></div>
                 <div class="shortcut-item"><kbd>Esc</kbd> <span>Cancel Stamp / Close Modal</span></div>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Import Custom Pattern Modal -->
+    <dialog id="importPatternModal" class="shortcuts-dialog">
+        <div class="modal-card import-modal-card">
+            <div class="modal-header">
+                <h2>Import Pattern</h2>
+                <button id="closeImportModal" class="close-btn" type="button">✕</button>
+            </div>
+            <div class="import-modal-body">
+                <div class="form-row">
+                    <label class="label" for="importName">Pattern Name</label>
+                    <input id="importName" type="text" class="custom-input" placeholder="e.g. Acorn, Gosper Gun, Heart...">
+                </div>
+                <div class="form-row">
+                    <label class="label" for="importCategory">Category</label>
+                    <select id="importCategory" class="custom-select">
+                        <option value="custom" selected>Custom</option>
+                        <option value="spaceships">Spaceships</option>
+                        <option value="guns">Guns</option>
+                        <option value="oscillators">Oscillators</option>
+                        <option value="still">Still Lifes</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label class="label" for="importData">Pattern Code (RLE / Plaintext .cells / JSON)</label>
+                    <textarea id="importData" class="custom-textarea" rows="6" placeholder="Paste RLE (e.g. 24bo$22bobo...), Plaintext (.cells with . and O), or [[r, c], ...]"></textarea>
+                </div>
+                <div class="import-preview-row">
+                    <div class="import-preview-box">
+                        <canvas id="importPreviewCanvas" width="80" height="64"></canvas>
+                    </div>
+                    <div class="import-preview-meta">
+                        <div id="importMetaInfo" class="import-meta-info">Enter pattern code above to preview</div>
+                        <div id="importError" class="import-error" hidden></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="cancelImportBtn" class="tool-btn" type="button">Cancel</button>
+                    <button id="submitImportBtn" class="tool-btn primary-btn" type="button" disabled>Add to Catalog</button>
+                </div>
             </div>
         </div>
     </dialog>

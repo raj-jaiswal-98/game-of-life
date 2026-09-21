@@ -526,6 +526,26 @@ canvas#board {
     border-color: var(--phosphor);
 }
 
+.ratio-badge {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--phosphor);
+    background: rgba(217, 227, 106, 0.08);
+    border: 1px solid rgba(217, 227, 106, 0.25);
+    border-radius: 10px;
+    padding: 1px 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    letter-spacing: 0.02em;
+}
+
+.ratio-badge:hover {
+    background: rgba(217, 227, 106, 0.2);
+    border-color: var(--phosphor);
+    box-shadow: 0 0 8px rgba(217, 227, 106, 0.35);
+}
+
 .toggle-row {
     display: flex;
     justify-content: space-between;
@@ -619,8 +639,14 @@ input[type="range"] {
     gap: 8px;
 }
 
+.pattern-search-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
 .pattern-search {
-    width: 100%;
+    flex: 1;
     background: #14120e;
     border: 1px solid var(--line);
     color: var(--ink);
@@ -629,6 +655,26 @@ input[type="range"] {
     font-size: 11px;
     border-radius: 4px;
     outline: none;
+}
+
+.btn-import-pattern {
+    background: #252018;
+    border: 1px solid var(--line-light);
+    color: var(--phosphor);
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.btn-import-pattern:hover {
+    background: var(--phosphor-dim);
+    color: #000;
+    border-color: var(--phosphor);
 }
 
 .pattern-search:focus {
@@ -974,4 +1020,107 @@ kbd {
     min-width: 24px;
     text-align: center;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Import Pattern Modal ─────────────────────────────────────────────────── */
+
+.import-modal-card {
+    max-width: 500px;
+    width: 90vw;
+}
+
+.import-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.custom-input, .custom-textarea {
+    background: #14120e;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.custom-textarea {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    resize: vertical;
+}
+
+.custom-input:focus, .custom-textarea:focus {
+    border-color: var(--phosphor);
+}
+
+.import-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #14120e;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.import-preview-box {
+    background: #0d0c0a;
+    border: 1px solid var(--line-light);
+    border-radius: 4px;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.import-preview-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.import-meta-info {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.import-error {
+    color: #ff6b6b;
+    font-size: 11px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.primary-btn {
+    background: var(--phosphor);
+    color: #000;
+    border: 1px solid var(--phosphor);
+    font-weight: 600;
+}
+
+.primary-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.primary-btn:not(:disabled):hover {
+    box-shadow: 0 0 10px var(--phosphor-glow);
 }

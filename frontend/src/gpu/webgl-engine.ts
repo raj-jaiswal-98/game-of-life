@@ -24,14 +24,14 @@ precision highp float;
 in vec2 v_uv;
 uniform sampler2D u_grid;
 uniform vec2 u_resolution; // (cols, rows)
-uniform int u_wallEnabled; // 1: 2-width wall collision buffer, 0: torus
+uniform int u_wallEnabled; // 0: Torus, 1: Absorbing 2-cell wall, 2: Elastic bouncing 2-cell wall
 out vec4 fragColor;
 
 void main() {
     vec2 texel = 1.0 / u_resolution;
     ivec2 coord = ivec2(gl_FragCoord.xy);
 
-    if (u_wallEnabled == 1) {
+    if (u_wallEnabled >= 1) {
         if (coord.x < 2 || coord.x >= int(u_resolution.x) - 2 ||
             coord.y < 2 || coord.y >= int(u_resolution.y) - 2) {
             fragColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -40,7 +40,7 @@ void main() {
     }
 
     int count = 0;
-    if (u_wallEnabled == 1) {
+    if (u_wallEnabled >= 1) {
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
                 if (dx == 0 && dy == 0) continue;
@@ -142,7 +142,7 @@ void main() {
     vec3 color = bgColor;
 
     // Subtle fading phosphor trail for dead cells
-    if (alive <= 0.5 && trail > 0.01 && !(u_wallEnabled == 1 && isWallCell)) {
+    if (alive <= 0.5 && trail > 0.01 && !(u_wallEnabled >= 1 && isWallCell)) {
         if (u_colorMode == 1) {
             color = mix(bgColor, vec3(0.08, 0.12, 0.22), trail * 0.7);
         } else if (u_colorMode == 2) {
@@ -154,7 +154,7 @@ void main() {
         }
     }
 
-    if (alive > 0.5 && !(u_wallEnabled == 1 && isWallCell)) {
+    if (alive > 0.5 && !(u_wallEnabled >= 1 && isWallCell)) {
         if (u_colorMode == 0) {
             // 0: Classic Phosphor & Amber
             vec3 liveColor = vec3(217.0 / 255.0, 227.0 / 255.0, 106.0 / 255.0); // #d9e36a
@@ -179,45 +179,47 @@ void main() {
 
         } else if (u_colorMode == 2) {
             // 2: Cyberpunk Neon
-            vec3 cHotPink = vec3(1.00, 0.02, 0.55);
-            vec3 cTurq    = vec3(0.00, 0.96, 0.92);
-            vec3 cViolet  = vec3(0.70, 0.15, 1.00);
-            color = mix(cTurq, cHotPink, age);
-            if (density > 0.35) {
-                color = mix(color, cViolet, 0.5);
-            }
+            vec3 cLive = vec3(1.00, 0.18, 0.55); // Hot Pink
+            vec3 cEdge = vec3(0.10, 0.95, 0.90); // Neon Turquoise
+            float edgeDist = abs(density - 0.375);
+            color = mix(cLive, cEdge, clamp(edgeDist * 2.5, 0.0, 1.0));
 
         } else if (u_colorMode == 3) {
-            // 3: Thermal Energy Glow
-            vec3 cCrimson = vec3(0.85, 0.08, 0.10);
-            vec3 cOrange  = vec3(1.00, 0.45, 0.05);
-            vec3 cYellow  = vec3(1.00, 0.92, 0.20);
-            vec3 cWhite   = vec3(1.00, 0.98, 0.90);
-
-            float heat = clamp(age * 0.4 + density * 1.5, 0.0, 1.0);
-            if (heat < 0.33) {
-                color = mix(cCrimson, cOrange, heat / 0.33);
-            } else if (heat < 0.70) {
-                color = mix(cOrange, cYellow, (heat - 0.33) / 0.37);
+            // 3: Thermal Glow
+            vec3 cDeep = vec3(0.85, 0.12, 0.08); // Crimson
+            vec3 cMid  = vec3(1.00, 0.55, 0.05); // Solar Orange
+            vec3 cPeak = vec3(1.00, 0.98, 0.90); // Plasma White
+            if (density < 0.375) {
+                color = mix(cDeep, cMid, density / 0.375);
             } else {
-                color = mix(cYellow, cWhite, (heat - 0.70) / 0.30);
+                color = mix(cMid, cPeak, (density - 0.375) / 0.625);
             }
         }
     }
 
     // Render 2-cell buffer wall styling
-    if (u_wallEnabled == 1 && isWallCell) {
+    if (u_wallEnabled >= 1 && isWallCell) {
         vec2 px = floor(v_uv * u_screenSize);
         float stripe = step(0.5, fract((px.x + px.y) / 14.0));
-        vec3 wallColor1 = vec3(22.0 / 255.0, 20.0 / 255.0, 18.0 / 255.0); // Dark steel slate
-        vec3 wallColor2 = vec3(44.0 / 255.0, 36.0 / 255.0, 22.0 / 255.0); // Subtle amber hazard tint
-        color = mix(wallColor1, wallColor2, stripe * 0.5);
-
-        // Highlight inner edge of the 2-cell wall
         bool isInnerEdge = (cellCoord.x == 1.0 || cellCoord.x == u_resolution.x - 2.0 ||
                             cellCoord.y == 1.0 || cellCoord.y == u_resolution.y - 2.0);
-        if (isInnerEdge) {
-            color = mix(color, vec3(224.0 / 255.0, 164.0 / 255.0, 90.0 / 255.0), 0.45);
+
+        if (u_wallEnabled == 2) {
+            // Mode 2: Elastic Trampoline Wall (Electric cyan & cyber blue)
+            vec3 wallColor1 = vec3(10.0 / 255.0, 24.0 / 255.0, 38.0 / 255.0);
+            vec3 wallColor2 = vec3(20.0 / 255.0, 60.0 / 255.0, 95.0 / 255.0);
+            color = mix(wallColor1, wallColor2, stripe * 0.45);
+            if (isInnerEdge) {
+                color = mix(color, vec3(0.15, 0.95, 1.00), 0.75); // Radiant cyan border
+            }
+        } else {
+            // Mode 1: Absorbing Hazard Wall (Amber hazard & slate)
+            vec3 wallColor1 = vec3(22.0 / 255.0, 20.0 / 255.0, 18.0 / 255.0);
+            vec3 wallColor2 = vec3(44.0 / 255.0, 36.0 / 255.0, 22.0 / 255.0);
+            color = mix(wallColor1, wallColor2, stripe * 0.5);
+            if (isInnerEdge) {
+                color = mix(color, vec3(224.0 / 255.0, 164.0 / 255.0, 90.0 / 255.0), 0.45);
+            }
         }
     }
 
@@ -262,7 +264,7 @@ export class WebGLEngine {
     public rows: number;
     public cols: number;
     public colorMode: number = 0; // 0: Classic, 1: Age Heatmap, 2: Cyberpunk, 3: Thermal
-    public wallMode: boolean = false;
+    public wallMode: number = 2; // 0: Torus, 1: Absorbing, 2: Elastic
     public panX: number = 0;
     public panY: number = 0;
     public zoom: number = 1.0;
@@ -353,7 +355,7 @@ export class WebGLEngine {
             for (let r = 0; r < rows; r++) {
                 const row: boolean[] = [];
                 for (let c = 0; c < cols; c++) {
-                    if (this.wallMode && (r < 2 || r >= rows - 2 || c < 2 || c >= cols - 2)) {
+                    if (this.wallMode === 1 && (r < 2 || r >= rows - 2 || c < 2 || c >= cols - 2)) {
                         row.push(false);
                     } else if (r < rLimit && c < cLimit) {
                         row.push(oldCells[r][c]);
@@ -371,10 +373,10 @@ export class WebGLEngine {
         this.colorMode = mode;
     }
 
-    public setWallMode(enabled: boolean): void {
-        this.wallMode = enabled;
-        if (this.wallMode) {
-            // Zero out cells in the 2-cell buffer layer
+    public setWallMode(mode: number | boolean): void {
+        this.wallMode = typeof mode === 'boolean' ? (mode ? 1 : 0) : mode;
+        if (this.wallMode === 1) {
+            // Zero out cells in the 2-cell buffer layer for absorbing mode
             for (let r = 0; r < this.rows; r++) {
                 for (let c = 0; c < this.cols; c++) {
                     if (r < 2 || r >= this.rows - 2 || c < 2 || c >= this.cols - 2) {
@@ -413,12 +415,130 @@ export class WebGLEngine {
         gl.bindTexture(gl.TEXTURE_2D, this.textures[this.currentIdx]);
         gl.uniform1i(this.simGridLoc, 0);
         gl.uniform2f(this.simResLoc, this.cols, this.rows);
-        gl.uniform1i(this.simWallLoc, this.wallMode ? 1 : 0);
+        gl.uniform1i(this.simWallLoc, this.wallMode);
 
         gl.bindVertexArray(this.vao);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         this.currentIdx = nextIdx;
+
+        if (this.wallMode === 2) {
+            this.checkAndApplyElasticBounce();
+        }
+    }
+
+    private checkAndApplyElasticBounce(): void {
+        const gl = this.gl;
+        const pixels = new Uint8Array(this.cols * this.rows * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[this.currentIdx]);
+        gl.readPixels(0, 0, this.cols, this.rows, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+        let hit = false;
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                if (r < 2 || r >= this.rows - 2 || c < 2 || c >= this.cols - 2) {
+                    if (pixels[(r * this.cols + c) * 4] > 127) {
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+            if (hit) break;
+        }
+
+        if (!hit) return;
+
+        const grid: boolean[][] = [];
+        for (let r = 0; r < this.rows; r++) {
+            const row: boolean[] = [];
+            for (let c = 0; c < this.cols; c++) {
+                row.push(pixels[(r * this.cols + c) * 4] > 127);
+            }
+            grid.push(row);
+        }
+
+        this.applyElasticBounceCPU(grid, this.rows, this.cols);
+        this.loadGrid(grid);
+    }
+
+    private applyElasticBounceCPU(grid: boolean[][], rows: number, cols: number): void {
+        const visited: boolean[][] = Array.from({ length: rows }, () => new Array(cols).fill(false));
+        const components: [number, number][][] = [];
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (grid[r][c] && !visited[r][c]) {
+                    const comp: [number, number][] = [];
+                    const queue: [number, number][] = [[r, c]];
+                    visited[r][c] = true;
+                    comp.push([r, c]);
+
+                    while (queue.length > 0) {
+                        const [cr, cc] = queue.shift()!;
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const nr = cr + dr;
+                                const nc = cc + dc;
+                                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                                    if (grid[nr][nc] && !visited[nr][nc]) {
+                                        visited[nr][nc] = true;
+                                        queue.push([nr, nc]);
+                                        comp.push([nr, nc]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    components.push(comp);
+                }
+            }
+        }
+
+        for (const comp of components) {
+            let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+            for (const [r, c] of comp) {
+                minR = Math.min(minR, r);
+                maxR = Math.max(maxR, r);
+                minC = Math.min(minC, c);
+                maxC = Math.max(maxC, c);
+            }
+
+            const hitTop = minR < 2;
+            const hitBottom = maxR >= rows - 2;
+            const hitLeft = minC < 2;
+            const hitRight = maxC >= cols - 2;
+
+            if (hitTop || hitBottom || hitLeft || hitRight) {
+                for (const [r, c] of comp) {
+                    grid[r][c] = false;
+                }
+
+                const hSpan = maxR - minR;
+                const wSpan = maxC - minC;
+
+                for (const [r, c] of comp) {
+                    let nr = r;
+                    let nc = c;
+
+                    if (hitBottom) {
+                        nr = (rows - 2 - 1 - hSpan) + (maxR - r) - 1;
+                    } else if (hitTop) {
+                        nr = 2 + 1 + (maxR - r);
+                    }
+
+                    if (hitRight) {
+                        nc = (cols - 2 - 1 - wSpan) + (maxC - c) - 1;
+                    } else if (hitLeft) {
+                        nc = 2 + 1 + (maxC - c);
+                    }
+
+                    const clampedR = Math.max(2, Math.min(rows - 3, nr));
+                    const clampedC = Math.max(2, Math.min(cols - 3, nc));
+                    grid[clampedR][clampedC] = true;
+                }
+            }
+        }
     }
 
     public setPanZoom(panX: number, panY: number, zoom: number): void {
@@ -441,7 +561,7 @@ export class WebGLEngine {
         gl.uniform2f(this.dispScreenLoc, canvasWidth, canvasHeight);
         gl.uniform1f(this.dispShowGridLoc, showGrid ? 1.0 : 0.0);
         gl.uniform1i(this.dispColorModeLoc, this.colorMode);
-        gl.uniform1i(this.dispWallLoc, this.wallMode ? 1 : 0);
+        gl.uniform1i(this.dispWallLoc, this.wallMode);
         gl.uniform1i(this.dispGhostCountLoc, this.ghostCount);
         gl.uniform2f(this.dispGhostOriginLoc, this.ghostOrigin[0], this.ghostOrigin[1]);
         gl.uniform2fv(this.dispGhostOffsetsLoc, this.ghostOffsets);
@@ -454,8 +574,8 @@ export class WebGLEngine {
 
     public setCell(row: number, col: number, alive: boolean): void {
         if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
-        if (this.wallMode && alive && (row < 2 || row >= this.rows - 2 || col < 2 || col >= this.cols - 2)) {
-            return; // Live cells cannot be placed inside 2-cell wall buffer
+        if (this.wallMode === 1 && alive && (row < 2 || row >= this.rows - 2 || col < 2 || col >= this.cols - 2)) {
+            return; // Live cells cannot be placed inside absorbing wall buffer
         }
         const gl = this.gl;
         const val = alive ? 255 : 0;

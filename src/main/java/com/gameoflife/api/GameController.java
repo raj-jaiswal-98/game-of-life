@@ -12,6 +12,7 @@ import com.gameoflife.api.dto.PaintRequest;
 import com.gameoflife.api.dto.PatternStampRequest;
 import com.gameoflife.api.dto.RandomizeRequest;
 import com.gameoflife.api.dto.WallModeRequest;
+import com.gameoflife.engine.LifeEngine;
 import com.gameoflife.engine.Patterns;
 import com.gameoflife.service.GameService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,7 +63,10 @@ public class GameController {
 
     @PostMapping("/wall")
     public GameStateResponse setWall(@RequestBody WallModeRequest request) {
-        return gameService.setWallMode(request.enabled());
+        if (request == null) {
+            return gameService.setBoundaryMode(LifeEngine.WALL_MODE_TORUS);
+        }
+        return gameService.setBoundaryMode(request.resolveMode());
     }
 
     @PostMapping("/benchmark")

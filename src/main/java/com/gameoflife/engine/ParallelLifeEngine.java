@@ -18,10 +18,14 @@ public final class ParallelLifeEngine {
      * Computes the next generation in parallel and allocates a new grid.
      */
     public static boolean[][] nextGeneration(boolean[][] grid) {
-        return nextGeneration(grid, false);
+        return nextGeneration(grid, LifeEngine.WALL_MODE_TORUS);
     }
 
     public static boolean[][] nextGeneration(boolean[][] grid, boolean wallMode) {
+        return nextGeneration(grid, wallMode ? LifeEngine.WALL_MODE_ABSORBING : LifeEngine.WALL_MODE_TORUS);
+    }
+
+    public static boolean[][] nextGeneration(boolean[][] grid, int wallMode) {
         int rows = grid.length;
         int cols = grid[0].length;
         boolean[][] next = new boolean[rows][cols];
@@ -34,23 +38,28 @@ public final class ParallelLifeEngine {
      * in parallel without any dynamic memory allocations.
      */
     public static void nextGeneration(boolean[][] current, boolean[][] next) {
-        nextGeneration(current, next, false);
+        nextGeneration(current, next, LifeEngine.WALL_MODE_TORUS);
     }
 
     public static void nextGeneration(boolean[][] current, boolean[][] next, boolean wallMode) {
+        nextGeneration(current, next, wallMode ? LifeEngine.WALL_MODE_ABSORBING : LifeEngine.WALL_MODE_TORUS);
+    }
+
+    public static void nextGeneration(boolean[][] current, boolean[][] next, int wallMode) {
         int rows = current.length;
         int cols = current[0].length;
+        boolean isWallBoundary = wallMode == LifeEngine.WALL_MODE_ABSORBING || wallMode == LifeEngine.WALL_MODE_ELASTIC;
 
         // Parallelize across rows: each thread operates independently on distinct row indices.
         IntStream.range(0, rows).parallel().forEach(r -> {
             boolean[] currRow = current[r];
             boolean[] nextRow = next[r];
             for (int c = 0; c < cols; c++) {
-                if (wallMode && LifeEngine.isWall(r, c, rows, cols)) {
+                if (wallMode == LifeEngine.WALL_MODE_ABSORBING && LifeEngine.isWall(r, c, rows, cols)) {
                     nextRow[c] = false;
                     continue;
                 }
-                int neighbors = countNeighbors(current, r, c, rows, cols, wallMode);
+                int neighbors = countNeighbors(current, r, c, rows, cols, isWallBoundary);
                 if (currRow[c]) {
                     nextRow[c] = (neighbors == 2 || neighbors == 3);
                 } else {
@@ -58,6 +67,10 @@ public final class ParallelLifeEngine {
                 }
             }
         });
+
+        if (wallMode == LifeEngine.WALL_MODE_ELASTIC) {
+            LifeEngine.applyElasticBounce(next, rows, cols);
+        }
     }
 
     /**

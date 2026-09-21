@@ -25,7 +25,7 @@ public class GameService {
     private boolean[][] cells;
     private int generation;
     private String engineMode = "PARALLEL";
-    private boolean wallMode = false;
+    private int boundaryMode = LifeEngine.WALL_MODE_ELASTIC;
 
     public GameService() {
         reset(DEFAULT_ROWS, DEFAULT_COLS);
@@ -54,9 +54,13 @@ public class GameService {
     }
 
     public GameStateResponse setWallMode(boolean enabled) {
+        return setBoundaryMode(enabled ? LifeEngine.WALL_MODE_ABSORBING : LifeEngine.WALL_MODE_TORUS);
+    }
+
+    public GameStateResponse setBoundaryMode(int mode) {
         synchronized (lock) {
-            this.wallMode = enabled;
-            if (wallMode && cells != null) {
+            this.boundaryMode = (mode < 0 || mode > 2) ? LifeEngine.WALL_MODE_TORUS : mode;
+            if (boundaryMode == LifeEngine.WALL_MODE_ABSORBING && cells != null) {
                 int rows = cells.length;
                 int cols = cells[0].length;
                 for (int r = 0; r < rows; r++) {
@@ -73,7 +77,13 @@ public class GameService {
 
     public boolean isWallMode() {
         synchronized (lock) {
-            return wallMode;
+            return boundaryMode != LifeEngine.WALL_MODE_TORUS;
+        }
+    }
+
+    public int getBoundaryMode() {
+        synchronized (lock) {
+            return boundaryMode;
         }
     }
 
@@ -95,7 +105,7 @@ public class GameService {
                 generation = 0;
             }
             cells = newCells;
-            if (wallMode) {
+            if (boundaryMode == LifeEngine.WALL_MODE_ABSORBING) {
                 for (int r = 0; r < rows; r++) {
                     for (int c = 0; c < cols; c++) {
                         if (LifeEngine.isWall(r, c, rows, cols)) {
@@ -124,7 +134,7 @@ public class GameService {
             if (gen != null && gen >= 0) {
                 this.generation = gen;
             }
-            if (wallMode) {
+            if (boundaryMode == LifeEngine.WALL_MODE_ABSORBING) {
                 for (int r = 0; r < rows; r++) {
                     for (int c = 0; c < cols; c++) {
                         if (LifeEngine.isWall(r, c, rows, cols)) {
@@ -148,7 +158,7 @@ public class GameService {
     public GameStateResponse toggle(int row, int col) {
         synchronized (lock) {
             assertInBounds(row, col);
-            if (wallMode && LifeEngine.isWall(row, col, cells.length, cells[0].length)) {
+            if (boundaryMode == LifeEngine.WALL_MODE_ABSORBING && LifeEngine.isWall(row, col, cells.length, cells[0].length)) {
                 return toResponse();
             }
             cells[row][col] = !cells[row][col];
@@ -159,7 +169,7 @@ public class GameService {
     public GameStateResponse setCell(int row, int col, boolean alive) {
         synchronized (lock) {
             assertInBounds(row, col);
-            if (wallMode && LifeEngine.isWall(row, col, cells.length, cells[0].length)) {
+            if (boundaryMode == LifeEngine.WALL_MODE_ABSORBING && LifeEngine.isWall(row, col, cells.length, cells[0].length)) {
                 return toResponse();
             }
             cells[row][col] = alive;
@@ -170,9 +180,9 @@ public class GameService {
     public GameStateResponse step() {
         synchronized (lock) {
             if ("PARALLEL".equalsIgnoreCase(engineMode)) {
-                cells = ParallelLifeEngine.nextGeneration(cells, wallMode);
+                cells = ParallelLifeEngine.nextGeneration(cells, boundaryMode);
             } else {
-                cells = LifeEngine.nextGeneration(cells, wallMode);
+                cells = LifeEngine.nextGeneration(cells, boundaryMode);
             }
             generation++;
             return toResponse();
@@ -187,7 +197,7 @@ public class GameService {
             ThreadLocalRandom random = ThreadLocalRandom.current();
             for (int r = 0; r < cells.length; r++) {
                 for (int c = 0; c < cells[r].length; c++) {
-                    if (wallMode && LifeEngine.isWall(r, c, cells.length, cells[r].length)) {
+                    if (boundaryMode == LifeEngine.WALL_MODE_ABSORBING && LifeEngine.isWall(r, c, cells.length, cells[r].length)) {
                         cells[r][c] = false;
                     } else {
                         cells[r][c] = random.nextDouble() < density;
@@ -210,7 +220,7 @@ public class GameService {
             for (Patterns.Offset offset : pattern.cells()) {
                 int r = Math.floorMod(originRow + offset.row(), rows);
                 int c = Math.floorMod(originCol + offset.col(), cols);
-                if (!wallMode || !LifeEngine.isWall(r, c, rows, cols)) {
+                if (boundaryMode != LifeEngine.WALL_MODE_ABSORBING || !LifeEngine.isWall(r, c, rows, cols)) {
                     cells[r][c] = true;
                 }
             }
@@ -303,6 +313,6 @@ public class GameService {
         int liveCount = "PARALLEL".equalsIgnoreCase(engineMode)
                 ? ParallelLifeEngine.countLiveCells(cells)
                 : LifeEngine.countLiveCells(cells);
-        return new GameStateResponse(rows, cols, generation, liveCount, copy, engineMode, wallMode);
+        return new GameStateResponse(rows, cols, generation, liveCount, copy, engineMode, boundaryMode != LifeEngine.WALL_MODE_TORUS, boundaryMode);
     }
 }

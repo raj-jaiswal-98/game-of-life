@@ -84,9 +84,10 @@ const liveEl          = document.getElementById('live')            as HTMLElemen
 const sizeEl          = document.getElementById('size')            as HTMLElement;
 const activeEngineText = document.getElementById('activeEngineText') as HTMLElement;
 const engineSelect    = document.getElementById('engineSelect')    as HTMLSelectElement;
-const wallToggle      = document.getElementById('wallToggle')      as HTMLInputElement;
+const boundaryModeSelect = document.getElementById('boundaryModeSelect') as HTMLSelectElement;
 const colorModeSelect = document.getElementById('colorModeSelect') as HTMLSelectElement;
 const gridSizeSelect  = document.getElementById('gridSizeSelect')  as HTMLSelectElement;
+const screenRatioBadge = document.getElementById('screenRatioBadge') as HTMLElement;
 const substepsSelect  = document.getElementById('substepsSelect')  as HTMLSelectElement;
 const speedInput      = document.getElementById('speed')           as HTMLInputElement;
 const speedValue      = document.getElementById('speedValue')      as HTMLElement;
@@ -95,6 +96,7 @@ const densityValue    = document.getElementById('densityValue')    as HTMLElemen
 
 // Tab 2: Patterns
 const patternSearch   = document.getElementById('patternSearch')   as HTMLInputElement;
+const openImportModalBtn = document.getElementById('openImportModalBtn') as HTMLButtonElement;
 const patternGrid     = document.getElementById('patternGrid')     as HTMLElement;
 const patternTools    = document.getElementById('patternTools')    as HTMLElement;
 const activePatternLabel = document.getElementById('activePatternLabel') as HTMLElement;
@@ -103,6 +105,18 @@ const flipHBtn        = document.getElementById('flipHBtn')        as HTMLButton
 const flipVBtn        = document.getElementById('flipVBtn')        as HTMLButtonElement;
 const centerPatternBtn = document.getElementById('centerPatternBtn') as HTMLButtonElement;
 const cancelPattern   = document.getElementById('cancelPattern')   as HTMLButtonElement;
+
+// Import Pattern Modal
+const importPatternModal = document.getElementById('importPatternModal') as HTMLDialogElement;
+const closeImportModal   = document.getElementById('closeImportModal')   as HTMLButtonElement;
+const cancelImportBtn    = document.getElementById('cancelImportBtn')    as HTMLButtonElement;
+const importNameInput    = document.getElementById('importName')         as HTMLInputElement;
+const importCategorySelect = document.getElementById('importCategory')  as HTMLSelectElement;
+const importDataInput    = document.getElementById('importData')         as HTMLTextAreaElement;
+const importPreviewCanvas = document.getElementById('importPreviewCanvas') as HTMLCanvasElement;
+const importMetaInfo     = document.getElementById('importMetaInfo')     as HTMLElement;
+const importError        = document.getElementById('importError')        as HTMLElement;
+const submitImportBtn    = document.getElementById('submitImportBtn')    as HTMLButtonElement;
 
 // Tab 3: Telemetry
 const sparklineCanvas = document.getElementById('sparklineCanvas') as HTMLCanvasElement;
@@ -123,7 +137,7 @@ type EngineMode = 'client-gpu' | 'server-parallel' | 'server-single';
 type ActiveTool = 'draw' | 'erase' | 'pan' | 'stamp';
 
 let currentEngine: EngineMode = 'client-gpu';
-let state: GameState = { rows: 42, cols: 72, generation: 0, liveCells: 0, cells: [] };
+let state: GameState = { rows: 42, cols: 72, generation: 0, liveCells: 0, cells: [], boundaryMode: 2 };
 let running = false;
 let painting = false;
 let paintAlive = true;
@@ -278,22 +292,31 @@ function applyState(next: GameState): void {
     state.cells = safeCells;
   }
 
-  if (state.wallMode !== undefined && wallToggle) {
-    wallToggle.checked = state.wallMode;
+  if (state.boundaryMode !== undefined && boundaryModeSelect) {
+    boundaryModeSelect.value = String(state.boundaryMode);
+  } else if (state.wallMode !== undefined && boundaryModeSelect) {
+    boundaryModeSelect.value = state.wallMode ? '1' : '0';
   }
 
   // Keep grid resolution select in sync
   const sizeVal = `${state.rows}x${state.cols}`;
-  if ([...gridSizeSelect.options].some(o => o.value === sizeVal)) {
-    gridSizeSelect.value = sizeVal;
+  if (![...gridSizeSelect.options].some(o => o.value === sizeVal)) {
+    const customOpt = document.createElement('option');
+    customOpt.value = sizeVal;
+    customOpt.textContent = `Active Grid (${state.rows} × ${state.cols})`;
+    gridSizeSelect.insertBefore(customOpt, gridSizeSelect.firstChild);
   }
+  gridSizeSelect.value = sizeVal;
+  adjustCanvasResolution(state.rows, state.cols);
 
   if (webglEngine) {
     if (webglEngine.rows !== state.rows || webglEngine.cols !== state.cols) {
       webglEngine.resize(state.rows, state.cols, false);
     }
-    if (state.wallMode !== undefined) {
-      webglEngine.wallMode = state.wallMode;
+    if (state.boundaryMode !== undefined) {
+      webglEngine.wallMode = state.boundaryMode;
+    } else if (state.wallMode !== undefined) {
+      webglEngine.wallMode = state.wallMode ? 1 : 0;
     }
     if (state.cells && state.cells.length > 0) {
       webglEngine.loadGrid(state.cells);
@@ -1188,11 +1211,11 @@ densityInput.addEventListener('input', () => {
   densityValue.textContent = `${Math.round(Number(densityInput.value) * 100)}%`;
 });
 
-// Wall Collision Buffer Toggle Listener
-wallToggle?.addEventListener('change', async () => {
-  const enabled = wallToggle.checked;
+// Boundary Mode Topology Listener
+boundaryModeSelect?.addEventListener('change', async () => {
+  const mode = Number(boundaryModeSelect.value);
   if (webglEngine) {
-    webglEngine.setWallMode(enabled);
+    webglEngine.setWallMode(mode);
     renderGPU();
     const extracted = webglEngine.extractGrid();
     state.cells = extracted.cells;
@@ -1204,18 +1227,236 @@ wallToggle?.addEventListener('change', async () => {
   try {
     const res = await api<GameState>('/api/game/wall', {
       method: 'POST',
-      body: JSON.stringify({ enabled } as WallModeRequest),
+      body: JSON.stringify({ mode } as WallModeRequest),
     });
     if (currentEngine !== 'client-gpu') {
       applyState(res);
     }
   } catch (e) {
-    console.warn('Wall mode backend sync:', e);
+    console.warn('Boundary mode backend sync:', e);
   }
 
-  hintEl.textContent = enabled
-    ? '🧱 2-Cell Wall Barrier active: Boundary acts as an absorbing collision wall.'
-    : '🔄 Toroidal Wrap active: Cells wrap around boundaries seamlessly.';
+  if (mode === 2) {
+    hintEl.textContent = '⚡ Elastic Wall active: Patterns bounce elastically off the 2-cell buffer layer with velocity reversal.';
+  } else if (mode === 1) {
+    hintEl.textContent = '🧱 Absorbing Wall active: Cells entering the 2-cell buffer layer are zeroed.';
+  } else {
+    hintEl.textContent = '🔄 Toroidal Wrap active: Cells wrap around opposite boundaries seamlessly.';
+  }
+});
+
+// ── Pattern Import Parser & Modal Handlers ────────────────────────────────────
+
+interface ParsedPattern {
+  name?: string;
+  cells: [number, number][];
+}
+
+function parsePatternInput(input: string): ParsedPattern {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error('Pattern code is empty.');
+  }
+
+  // 1. JSON coordinate array e.g. [[0, 1], [1, 2]]
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const cells: [number, number][] = [];
+        for (const item of parsed) {
+          if (Array.isArray(item) && item.length >= 2) {
+            cells.push([Number(item[0]), Number(item[1])]);
+          } else if (item && typeof item === 'object' && 'row' in item && 'col' in item) {
+            cells.push([Number(item.row), Number(item.col)]);
+          }
+        }
+        if (cells.length > 0) {
+          const minR = Math.min(...cells.map(c => c[0]));
+          const minC = Math.min(...cells.map(c => c[1]));
+          return { cells: cells.map(([r, c]) => [r - minR, c - minC]) };
+        }
+      }
+    } catch {
+      // Fall through to RLE / Plaintext
+    }
+  }
+
+  // 2. Plaintext format (.cells)
+  const lines = trimmed.split(/\r?\n/);
+  const isRLE = trimmed.includes('$') || trimmed.includes('!') || /x\s*=\s*\d+/.test(trimmed);
+  const isPlaintext = !isRLE && lines.some(l => !l.startsWith('!') && /^[.O*oX ]+$/.test(l.trim()));
+
+  if (isPlaintext) {
+    let extractedName: string | undefined;
+    const cells: [number, number][] = [];
+    let r = 0;
+    for (const line of lines) {
+      const lineTrim = line.trim();
+      if (lineTrim.startsWith('!')) {
+        if (!extractedName && lineTrim.length > 1) {
+          extractedName = lineTrim.slice(1).trim();
+        }
+        continue;
+      }
+      for (let c = 0; c < line.length; c++) {
+        const ch = line[c];
+        if (ch === 'O' || ch === 'o' || ch === '*' || ch === 'X') {
+          cells.push([r, c]);
+        }
+      }
+      r++;
+    }
+    if (cells.length > 0) {
+      const minR = Math.min(...cells.map(c => c[0]));
+      const minC = Math.min(...cells.map(c => c[1]));
+      return { name: extractedName, cells: cells.map(([cr, cc]) => [cr - minR, cc - minC]) };
+    }
+  }
+
+  // 3. RLE format
+  let extractedName: string | undefined;
+  let rleData = '';
+  for (const line of lines) {
+    const l = line.trim();
+    if (l.startsWith('#')) {
+      if (l.startsWith('#N') && !extractedName) {
+        extractedName = l.slice(2).trim();
+      }
+      continue;
+    }
+    if (l.startsWith('x') && l.includes('=')) {
+      continue; // Skip header line
+    }
+    rleData += l;
+  }
+
+  const cells: [number, number][] = [];
+  let curR = 0;
+  let curC = 0;
+  let countStr = '';
+
+  for (let i = 0; i < rleData.length; i++) {
+    const ch = rleData[i];
+    if (ch >= '0' && ch <= '9') {
+      countStr += ch;
+    } else if (ch === 'b') {
+      const count = countStr ? parseInt(countStr, 10) : 1;
+      curC += count;
+      countStr = '';
+    } else if (ch === 'o' || ch === 'A') {
+      const count = countStr ? parseInt(countStr, 10) : 1;
+      for (let k = 0; k < count; k++) {
+        cells.push([curR, curC + k]);
+      }
+      curC += count;
+      countStr = '';
+    } else if (ch === '$') {
+      const count = countStr ? parseInt(countStr, 10) : 1;
+      curR += count;
+      curC = 0;
+      countStr = '';
+    } else if (ch === '!') {
+      break;
+    }
+  }
+
+  if (cells.length === 0) {
+    throw new Error('No live cells found in pattern data.');
+  }
+
+  const minR = Math.min(...cells.map(c => c[0]));
+  const minC = Math.min(...cells.map(c => c[1]));
+  return { name: extractedName, cells: cells.map(([r, c]) => [r - minR, c - minC]) };
+}
+
+let pendingImportCells: [number, number][] | null = null;
+
+function updateImportPreview(): void {
+  const ctx = importPreviewCanvas.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = '#0d0c0a';
+  ctx.fillRect(0, 0, importPreviewCanvas.width, importPreviewCanvas.height);
+
+  const rawText = importDataInput.value.trim();
+  if (!rawText) {
+    importMetaInfo.textContent = 'Enter pattern code above to preview';
+    importError.hidden = true;
+    submitImportBtn.disabled = true;
+    pendingImportCells = null;
+    return;
+  }
+
+  try {
+    const parsed = parsePatternInput(rawText);
+    pendingImportCells = parsed.cells;
+    importError.hidden = true;
+    submitImportBtn.disabled = false;
+
+    if (parsed.name && !importNameInput.value.trim()) {
+      importNameInput.value = parsed.name;
+    }
+
+    const maxR = Math.max(...parsed.cells.map(c => c[0])) + 1;
+    const maxC = Math.max(...parsed.cells.map(c => c[1])) + 1;
+    importMetaInfo.textContent = `Size: ${maxC} × ${maxR} (${parsed.cells.length} live cells)`;
+
+    const cellSize = Math.min(Math.floor(56 / Math.max(maxR, maxC)), 6);
+    const startX = Math.floor((importPreviewCanvas.width - maxC * cellSize) / 2);
+    const startY = Math.floor((importPreviewCanvas.height - maxR * cellSize) / 2);
+
+    ctx.fillStyle = '#d9e36a';
+    for (const [r, c] of parsed.cells) {
+      ctx.fillRect(startX + c * cellSize, startY + r * cellSize, cellSize - 1, cellSize - 1);
+    }
+  } catch (err: unknown) {
+    pendingImportCells = null;
+    submitImportBtn.disabled = true;
+    importError.hidden = false;
+    importError.textContent = err instanceof Error ? err.message : String(err);
+    importMetaInfo.textContent = 'Invalid format';
+  }
+}
+
+openImportModalBtn?.addEventListener('click', () => {
+  importPatternModal.showModal();
+  importDataInput.focus();
+  updateImportPreview();
+});
+
+closeImportModal?.addEventListener('click', () => importPatternModal.close());
+cancelImportBtn?.addEventListener('click', () => importPatternModal.close());
+importPatternModal?.addEventListener('click', (e) => {
+  if (e.target === importPatternModal) importPatternModal.close();
+});
+
+importDataInput?.addEventListener('input', updateImportPreview);
+
+submitImportBtn?.addEventListener('click', () => {
+  if (!pendingImportCells || pendingImportCells.length === 0) return;
+
+  const rawName = importNameInput.value.trim() || 'Custom Pattern';
+  const id = 'custom_' + Date.now().toString(36);
+  const category = importCategorySelect.value || 'custom';
+
+  DEFAULT_PATTERNS[id] = pendingImportCells;
+  PATTERN_CATEGORIES[id] = category;
+
+  patternCatalog.set(id, {
+    id,
+    name: rawName,
+    description: `User-imported pattern (${category})`,
+    cells: pendingImportCells.map(([row, col]) => ({ row, col })),
+  });
+
+  importPatternModal.close();
+  importNameInput.value = '';
+  importDataInput.value = '';
+  pendingImportCells = null;
+
+  renderPatternGrid();
+  setPattern(id);
+  hintEl.textContent = `Pattern "${rawName}" added to catalog! Click or drag on canvas to stamp.`;
 });
 
 // Color mode segmentation listener
@@ -1278,6 +1519,179 @@ engineSelect.addEventListener('change', async () => {
   }
 });
 
+// ── Screen Aspect Ratio & Dynamic Resolution Engine ──────────────────────────
+
+interface ScreenRatioData {
+  ratio: number;
+  label: string;
+}
+
+function getAvailableScreenRatio(): ScreenRatioData {
+  const wrap = board.parentElement;
+  const w = (wrap && wrap.clientWidth > 0) ? wrap.clientWidth : (window.innerWidth - 380);
+  const h = (wrap && wrap.clientHeight > 0) ? wrap.clientHeight : (window.innerHeight - 120);
+  const rawRatio = Math.max(0.4, Math.min(4.0, w / Math.max(1, h)));
+
+  let label = `${rawRatio.toFixed(2)}:1 Screen`;
+  if (Math.abs(rawRatio - 16 / 9) < 0.08) label = '16:9 Screen Fit';
+  else if (Math.abs(rawRatio - 16 / 10) < 0.08) label = '16:10 Screen Fit';
+  else if (Math.abs(rawRatio - 21 / 9) < 0.12) label = '21:9 Ultrawide';
+  else if (Math.abs(rawRatio - 32 / 9) < 0.15) label = '32:9 Superwide';
+  else if (Math.abs(rawRatio - 4 / 3) < 0.08) label = '4:3 Screen Fit';
+  else if (Math.abs(rawRatio - 3 / 2) < 0.08) label = '3:2 Screen Fit';
+  else if (Math.abs(rawRatio - 1.0) < 0.08) label = '1:1 Square';
+
+  return { ratio: rawRatio, label };
+}
+
+function adjustCanvasResolution(rows: number, cols: number): void {
+  const wrap = board.parentElement;
+  const wrapW = (wrap && wrap.clientWidth > 0) ? wrap.clientWidth : 1152;
+  const wrapH = (wrap && wrap.clientHeight > 0) ? wrap.clientHeight : 672;
+  const gridRatio = cols / rows;
+  const screenRatio = wrapW / wrapH;
+
+  let canvasW: number;
+  let canvasH: number;
+
+  if (Math.abs(gridRatio - screenRatio) < 0.06) {
+    canvasW = wrapW;
+    canvasH = wrapH;
+  } else if (gridRatio > screenRatio) {
+    canvasW = wrapW;
+    canvasH = wrapW / gridRatio;
+  } else {
+    canvasH = wrapH;
+    canvasW = wrapH * gridRatio;
+  }
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const minDimension = 1024;
+  const scale = Math.max(dpr, minDimension / Math.max(canvasW, canvasH));
+
+  board.width = Math.round(canvasW * scale);
+  board.height = Math.round(canvasH * scale);
+}
+
+let lastCalculatedRatio = 0;
+
+function updateDynamicGridRecommendations(force = false): void {
+  const { ratio, label } = getAvailableScreenRatio();
+
+  if (screenRatioBadge) {
+    screenRatioBadge.textContent = label;
+  }
+
+  if (!force && lastCalculatedRatio > 0 && Math.abs(ratio - lastCalculatedRatio) / lastCalculatedRatio < 0.025) {
+    return;
+  }
+  lastCalculatedRatio = ratio;
+
+  const currentVal = `${state.rows}x${state.cols}`;
+
+  const makeCols = (r: number) => {
+    let c = Math.round(r * ratio);
+    if (c % 2 !== 0) c += 1;
+    return Math.max(10, c);
+  };
+
+  const rCompact = 42;
+  const cCompact = makeCols(rCompact);
+
+  const rStandard = 64;
+  const cStandard = makeCols(rStandard);
+
+  const rHD = 120;
+  const cHD = makeCols(rHD);
+
+  const r2K = 240;
+  const c2K = makeCols(r2K);
+
+  const r4K = 480;
+  const c4K = makeCols(r4K);
+
+  let r1M = Math.round(Math.sqrt(1_000_000 / ratio));
+  if (r1M % 2 !== 0) r1M += 1;
+  const c1M = makeCols(r1M);
+
+  const dynamicTiers = [
+    { value: `${rCompact}x${cCompact}`, label: `🌱 Compact (${rCompact} × ${cCompact}) · Fast` },
+    { value: `${rStandard}x${cStandard}`, label: `🎬 Studio HD (${rStandard} × ${cStandard}) · Recommended` },
+    { value: `${rHD}x${cHD}`, label: `✨ HD Arena (${rHD} × ${cHD})` },
+    { value: `${r2K}x${c2K}`, label: `⚡ 2K Megagrid (${r2K} × ${c2K})` },
+    { value: `${r4K}x${c4K}`, label: `🔥 4K GPU Grid (${r4K} × ${c4K})` },
+    { value: `${r1M}x${c1M}`, label: `🚀 1 Million Cells (${r1M} × ${c1M})` },
+  ];
+
+  const fixedTiers = [
+    { value: '42x72', label: '42 × 72 (Legacy Studio)' },
+    { value: '60x100', label: '60 × 100 (Legacy Widescreen)' },
+    { value: '128x128', label: '128 × 128 (Square HD)' },
+    { value: '256x256', label: '256 × 256 (Square 2K)' },
+    { value: '512x512', label: '512 × 512 (Square 4K)' },
+    { value: '1024x1024', label: '1024 × 1024 (Square 1M)' },
+  ];
+
+  gridSizeSelect.innerHTML = '';
+
+  const dynGroup = document.createElement('optgroup');
+  dynGroup.id = 'dynamicRatioGroup';
+  dynGroup.label = `📐 Screen Matched (${label})`;
+
+  let foundCurrent = false;
+
+  dynamicTiers.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.value;
+    opt.textContent = t.label;
+    if (t.value === currentVal) {
+      opt.selected = true;
+      foundCurrent = true;
+    }
+    dynGroup.appendChild(opt);
+  });
+  gridSizeSelect.appendChild(dynGroup);
+
+  const fixedGroup = document.createElement('optgroup');
+  fixedGroup.label = '🔲 Fixed & Square Presets';
+
+  fixedTiers.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.value;
+    opt.textContent = t.label;
+    if (t.value === currentVal && !foundCurrent) {
+      opt.selected = true;
+      foundCurrent = true;
+    }
+    fixedGroup.appendChild(opt);
+  });
+  gridSizeSelect.appendChild(fixedGroup);
+
+  if (!foundCurrent) {
+    const customOpt = document.createElement('option');
+    customOpt.value = currentVal;
+    customOpt.textContent = `Active Grid (${state.rows} × ${state.cols})`;
+    customOpt.selected = true;
+    gridSizeSelect.insertBefore(customOpt, gridSizeSelect.firstChild);
+  }
+
+  gridSizeSelect.value = currentVal;
+}
+
+screenRatioBadge?.addEventListener('click', () => {
+  updateDynamicGridRecommendations(true);
+  const { ratio, label } = getAvailableScreenRatio();
+  const rStandard = 64;
+  let cStandard = Math.round(rStandard * ratio);
+  if (cStandard % 2 !== 0) cStandard += 1;
+  const targetVal = `${rStandard}x${cStandard}`;
+  if (gridSizeSelect.value !== targetVal) {
+    gridSizeSelect.value = targetVal;
+    gridSizeSelect.dispatchEvent(new Event('change'));
+  }
+  hintEl.textContent = `📐 Auto-fit grid applied for ${label}: ${rStandard} × ${cStandard}.`;
+});
+
 // Grid resolution resize listener — Zero-Loss Resizing
 gridSizeSelect.addEventListener('change', async () => {
   const wasRunning = running;
@@ -1320,13 +1734,7 @@ gridSizeSelect.addEventListener('change', async () => {
   liveEl.textContent = String(liveCount);
   quickLive.textContent = String(liveCount);
 
-  if (rows === cols) {
-    board.width = 1024;
-    board.height = 1024;
-  } else {
-    board.width = 1152;
-    board.height = 672;
-  }
+  adjustCanvasResolution(rows, cols);
 
   if (webglEngine) {
     webglEngine.resize(rows, cols, false);
@@ -1484,8 +1892,11 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
   } else if (e.key === 'c' || e.key === 'C') {
     clearBtn.click();
   } else if (e.key === 'w' || e.key === 'W') {
-    wallToggle.checked = !wallToggle.checked;
-    wallToggle.dispatchEvent(new Event('change'));
+    if (boundaryModeSelect) {
+      const curMode = Number(boundaryModeSelect.value) || 0;
+      boundaryModeSelect.value = String((curMode + 1) % 3);
+      boundaryModeSelect.dispatchEvent(new Event('change'));
+    }
   } else if (e.key === 'r' || e.key === 'R') {
     if (selectedPattern) {
       patternRotation = (patternRotation + 90) % 360;
@@ -1578,8 +1989,29 @@ async function boot(): Promise<void> {
   renderPatternGrid();
 
   const initial = await api<GameState>('/api/game');
+  updateDynamicGridRecommendations(true);
   initGPU(initial.rows, initial.cols);
+  adjustCanvasResolution(initial.rows, initial.cols);
   applyState(initial);
+
+  if (window.ResizeObserver && board.parentElement) {
+    const resizeObs = new ResizeObserver(() => {
+      updateDynamicGridRecommendations(false);
+      adjustCanvasResolution(state.rows, state.cols);
+      if (webglEngine) {
+        renderGPU();
+      }
+    });
+    resizeObs.observe(board.parentElement);
+  } else {
+    window.addEventListener('resize', () => {
+      updateDynamicGridRecommendations(false);
+      adjustCanvasResolution(state.rows, state.cols);
+      if (webglEngine) {
+        renderGPU();
+      }
+    });
+  }
 
   const initialSpeed = Number(speedInput.value);
   if (initialSpeed === 0) {

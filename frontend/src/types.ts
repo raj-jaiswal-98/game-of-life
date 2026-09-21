@@ -20,6 +20,7 @@ export interface GameState {
   cells: boolean[][];
   engineMode?: string;
   wallMode?: boolean;
+  boundaryMode?: number;
 }
 
 /**
@@ -109,7 +110,8 @@ export interface GridSyncRequest {
 
 /** Mirrors WallModeRequest.java — used by POST /api/game/wall */
 export interface WallModeRequest {
-  enabled: boolean;
+  enabled?: boolean;
+  mode?: number;
 }
 
 /** Mirrors EngineRequest.java — used by POST /api/game/engine */

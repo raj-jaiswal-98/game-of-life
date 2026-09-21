@@ -88,6 +88,59 @@ class LifeEngineTest {
         assertArrayEquals(nextWall, nextPar);
     }
 
+    @Test
+    void absorbingWallCausesGliderToShrinkIntoStillLife() {
+        int rows = 24;
+        int cols = 24;
+        boolean[][] grid = empty(rows, cols);
+
+        // Place glider at (15, 15) heading south-east (+r, +c) towards (21, 21)
+        grid[15][16] = true;
+        grid[16][17] = true;
+        grid[17][15] = true;
+        grid[17][16] = true;
+        grid[17][17] = true;
+        assertEquals(5, LifeEngine.countLiveCells(grid));
+
+        // Advance 30 generations in absorbing mode
+        for (int i = 0; i < 30; i++) {
+            grid = LifeEngine.nextGeneration(grid, LifeEngine.WALL_MODE_ABSORBING);
+        }
+
+        // Glider should have hit the absorbing wall and shrunk into 4 cells (still-life Block)
+        int finalLive = LifeEngine.countLiveCells(grid);
+        assertTrue(finalLive <= 4, "Absorbing wall should cause glider to shrink to <= 4 cells, got: " + finalLive);
+    }
+
+    @Test
+    void elasticWallBouncesGliderPreservingAllFiveCells() {
+        int rows = 36;
+        int cols = 36;
+        boolean[][] grid = empty(rows, cols);
+
+        // Place glider at (4, 4) heading south-east
+        grid[4][5] = true;
+        grid[5][6] = true;
+        grid[6][4] = true;
+        grid[6][5] = true;
+        grid[6][6] = true;
+        assertEquals(5, LifeEngine.countLiveCells(grid));
+
+        // Advance through multiple bounces in elastic mode
+        for (int i = 0; i < 150; i++) {
+            grid = LifeEngine.nextGeneration(grid, LifeEngine.WALL_MODE_ELASTIC);
+        }
+
+        // Glider must maintain all 5 cells after bouncing cleanly off walls
+        int finalLive = LifeEngine.countLiveCells(grid);
+        assertEquals(5, finalLive, "Elastic wall must preserve all 5 cells of the glider after wall bounces");
+
+        // Verify ParallelLifeEngine matches LifeEngine in elastic mode
+        boolean[][] seqNext = LifeEngine.nextGeneration(grid, LifeEngine.WALL_MODE_ELASTIC);
+        boolean[][] parNext = ParallelLifeEngine.nextGeneration(grid, LifeEngine.WALL_MODE_ELASTIC);
+        assertArrayEquals(seqNext, parNext, "Parallel and sequential engines must produce identical elastic bounce results");
+    }
+
     private static boolean[][] empty(int rows, int cols) {
         return new boolean[rows][cols];
     }
