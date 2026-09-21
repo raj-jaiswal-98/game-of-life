@@ -77,6 +77,19 @@
                 </div>
 
                 <div class="selector-card">
+                    <div class="toggle-row">
+                        <div class="toggle-text">
+                            <label class="label" for="wallToggle">2-Cell Wall Barrier</label>
+                            <span class="sublabel">Absorbing collision wall (stops wrap-around)</span>
+                        </div>
+                        <label class="switch" title="Toggle 2-cell boundary collision wall">
+                            <input type="checkbox" id="wallToggle">
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="selector-card">
                     <label class="label" for="gridSizeSelect">Grid Resolution</label>
                     <select id="gridSizeSelect" class="custom-select">
                         <option value="42x72" selected>42 × 72 (Classic)</option>
@@ -136,10 +149,17 @@
                 </div>
 
                 <div class="patterns">
-                    <h2>Pattern Catalog</h2>
-                    <p class="sub">Select one, then click the board to place it.</p>
+                    <div class="patterns-header">
+                        <h2>Pattern Catalog</h2>
+                        <span id="patternBadge" class="pattern-badge" hidden>Ready to stamp</span>
+                    </div>
+                    <p class="sub">Select a pattern, hover over the grid for ghost preview, then click to stamp.</p>
+                    <div id="patternTools" class="pattern-tools" hidden>
+                        <button id="rotatePatternBtn" class="small-btn" type="button" title="Rotate 90° (Key: R)">↻ Rotate 90° (R)</button>
+                        <button id="centerPatternBtn" class="small-btn" type="button" title="Stamp at grid center">✛ Center</button>
+                        <button id="cancelPattern" class="ghost small-btn" type="button">✕ Cancel</button>
+                    </div>
                     <div id="patternList" class="pattern-list"></div>
-                    <button id="cancelPattern" class="ghost" type="button" hidden>Cancel stamp</button>
                 </div>
             </aside>
         </section>

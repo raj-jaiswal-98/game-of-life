@@ -6,10 +6,12 @@ import com.gameoflife.api.dto.CellRequest;
 import com.gameoflife.api.dto.EngineRequest;
 import com.gameoflife.api.dto.GameStateResponse;
 import com.gameoflife.api.dto.GridSizeRequest;
+import com.gameoflife.api.dto.GridSyncRequest;
 import com.gameoflife.api.dto.PatternInfo;
 import com.gameoflife.api.dto.PaintRequest;
 import com.gameoflife.api.dto.PatternStampRequest;
 import com.gameoflife.api.dto.RandomizeRequest;
+import com.gameoflife.api.dto.WallModeRequest;
 import com.gameoflife.engine.Patterns;
 import com.gameoflife.service.GameService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,16 +60,35 @@ public class GameController {
         return gameService.setEngineMode(request.mode());
     }
 
+    @PostMapping("/wall")
+    public GameStateResponse setWall(@RequestBody WallModeRequest request) {
+        return gameService.setWallMode(request.enabled());
+    }
+
     @PostMapping("/benchmark")
     public BenchmarkResponse benchmark(@RequestBody(required = false) BenchmarkRequest request) {
         return gameService.benchmark(request);
+    }
+
+    @PostMapping("/resize")
+    public GameStateResponse resize(@RequestBody(required = false) GridSizeRequest request) {
+        int rows = request == null ? GameService.DEFAULT_ROWS : request.rows();
+        int cols = request == null ? GameService.DEFAULT_COLS : request.cols();
+        boolean preserve = request == null || request.preserveCells() == null || request.preserveCells();
+        return gameService.resize(rows, cols, preserve);
     }
 
     @PostMapping("/reset")
     public GameStateResponse reset(@RequestBody(required = false) GridSizeRequest request) {
         int rows = request == null ? GameService.DEFAULT_ROWS : request.rows();
         int cols = request == null ? GameService.DEFAULT_COLS : request.cols();
-        return gameService.reset(rows, cols);
+        boolean preserve = request != null && Boolean.TRUE.equals(request.preserveCells());
+        return gameService.resize(rows, cols, preserve);
+    }
+
+    @PostMapping("/grid")
+    public GameStateResponse syncGrid(@RequestBody GridSyncRequest request) {
+        return gameService.setGrid(request.rows(), request.cols(), request.generation(), request.cells());
     }
 
     @PostMapping("/clear")

@@ -19,6 +19,7 @@ export interface GameState {
   /** Dense boolean grid: cells[row][col] === true means the cell is alive. */
   cells: boolean[][];
   engineMode?: string;
+  wallMode?: boolean;
 }
 
 /**
@@ -91,10 +92,24 @@ export interface PatternStampRequest {
   col: number;
 }
 
-/** Mirrors GridSizeRequest.java — used by POST /api/game/reset */
+/** Mirrors GridSizeRequest.java — used by POST /api/game/reset and /api/game/resize */
 export interface GridSizeRequest {
   rows: number;
   cols: number;
+  preserveCells?: boolean;
+}
+
+/** Mirrors GridSyncRequest.java — used by POST /api/game/grid */
+export interface GridSyncRequest {
+  rows: number;
+  cols: number;
+  generation?: number;
+  cells: boolean[][];
+}
+
+/** Mirrors WallModeRequest.java — used by POST /api/game/wall */
+export interface WallModeRequest {
+  enabled: boolean;
 }
 
 /** Mirrors EngineRequest.java — used by POST /api/game/engine */

@@ -9,7 +9,10 @@
  * Features:
  *  - Fullscreen view mode
  *  - 4 Dynamic Color & Segmentation modes (Classic, Age Heatmap, Cyberpunk, Thermal)
- *  - Grid sizes up to 2048x2048 (4.19M cells)
+ *  - 2-Width Wall Collision Buffer with UI Toggle (Absorbing barrier / non-toroidal)
+ *  - Interactive Pattern Ghost Preview & Rotation ('R' key / Toolbar)
+ *  - Zero-Loss Grid Size Resizing (preserves cells on resize)
+ *  - Bidirectional GPU ⇄ Server Engine State Synchronization
  *  - 1-Click Live GPU Stress Test Presets
  *  - Real-time Performance HUD: FPS, GPS, Frame Latency, Live Cells, Grid Dimension.
  */
@@ -20,9 +23,10 @@ import type {
   GameState,
   PatternInfo,
   PaintRequest,
-  PatternStampRequest,
   RandomizeRequest,
   GridSizeRequest,
+  GridSyncRequest,
+  WallModeRequest,
   EngineRequest,
   BenchmarkResponse,
   HardwareInfo,
@@ -30,35 +34,40 @@ import type {
 
 // ── DOM elements ─────────────────────────────────────────────────────────────
 
-const boardFrame      = document.getElementById('boardFrame')      as HTMLElement;
-const board           = document.getElementById('board')           as HTMLCanvasElement;
-const generationEl    = document.getElementById('generation')      as HTMLElement;
-const liveEl          = document.getElementById('live')            as HTMLElement;
-const sizeEl          = document.getElementById('size')            as HTMLElement;
-const hintEl          = document.getElementById('hint')            as HTMLElement;
-const playBtn         = document.getElementById('play')            as HTMLButtonElement;
-const stepBtn         = document.getElementById('step')            as HTMLButtonElement;
-const clearBtn        = document.getElementById('clear')           as HTMLButtonElement;
-const randomBtn       = document.getElementById('random')          as HTMLButtonElement;
-const speedInput      = document.getElementById('speed')           as HTMLInputElement;
-const speedValue      = document.getElementById('speedValue')      as HTMLElement;
-const densityInput    = document.getElementById('density')         as HTMLInputElement;
-const densityValue    = document.getElementById('densityValue')    as HTMLElement;
-const patternList     = document.getElementById('patternList')     as HTMLElement;
-const cancelPattern   = document.getElementById('cancelPattern')   as HTMLButtonElement;
+const boardFrame        = document.getElementById('boardFrame')        as HTMLElement;
+const board             = document.getElementById('board')             as HTMLCanvasElement;
+const generationEl      = document.getElementById('generation')        as HTMLElement;
+const liveEl            = document.getElementById('live')              as HTMLElement;
+const sizeEl            = document.getElementById('size')              as HTMLElement;
+const hintEl            = document.getElementById('hint')              as HTMLElement;
+const playBtn           = document.getElementById('play')              as HTMLButtonElement;
+const stepBtn           = document.getElementById('step')              as HTMLButtonElement;
+const clearBtn          = document.getElementById('clear')             as HTMLButtonElement;
+const randomBtn         = document.getElementById('random')            as HTMLButtonElement;
+const speedInput        = document.getElementById('speed')             as HTMLInputElement;
+const speedValue        = document.getElementById('speedValue')        as HTMLElement;
+const densityInput      = document.getElementById('density')           as HTMLInputElement;
+const densityValue      = document.getElementById('densityValue')      as HTMLElement;
+const patternList       = document.getElementById('patternList')       as HTMLElement;
+const cancelPattern     = document.getElementById('cancelPattern')     as HTMLButtonElement;
+const patternBadge      = document.getElementById('patternBadge')      as HTMLElement;
+const patternTools      = document.getElementById('patternTools')      as HTMLElement;
+const rotatePatternBtn  = document.getElementById('rotatePatternBtn')  as HTMLButtonElement;
+const centerPatternBtn  = document.getElementById('centerPatternBtn')  as HTMLButtonElement;
 
-const engineSelect    = document.getElementById('engineSelect')    as HTMLSelectElement;
-const colorModeSelect = document.getElementById('colorModeSelect') as HTMLSelectElement;
-const gridSizeSelect  = document.getElementById('gridSizeSelect')  as HTMLSelectElement;
-const engineBadge     = document.getElementById('engineBadge')     as HTMLElement;
-const activeEngineText = document.getElementById('activeEngineText') as HTMLElement;
-const fpsEl           = document.getElementById('fps')             as HTMLElement;
-const gpsEl           = document.getElementById('gps')             as HTMLElement;
-const frameTimeEl     = document.getElementById('frameTime')       as HTMLElement;
-const runBenchmarkBtn = document.getElementById('runBenchmark')    as HTMLButtonElement;
-const benchmarkResult = document.getElementById('benchmarkResult') as HTMLElement;
-const fullscreenBtn   = document.getElementById('fullscreenBtn')   as HTMLButtonElement;
-const substepsSelect  = document.getElementById('substepsSelect')  as HTMLSelectElement;
+const wallToggle        = document.getElementById('wallToggle')        as HTMLInputElement;
+const engineSelect      = document.getElementById('engineSelect')      as HTMLSelectElement;
+const colorModeSelect   = document.getElementById('colorModeSelect')   as HTMLSelectElement;
+const gridSizeSelect    = document.getElementById('gridSizeSelect')    as HTMLSelectElement;
+const engineBadge       = document.getElementById('engineBadge')       as HTMLElement;
+const activeEngineText  = document.getElementById('activeEngineText')   as HTMLElement;
+const fpsEl             = document.getElementById('fps')               as HTMLElement;
+const gpsEl             = document.getElementById('gps')               as HTMLElement;
+const frameTimeEl       = document.getElementById('frameTime')         as HTMLElement;
+const runBenchmarkBtn   = document.getElementById('runBenchmark')      as HTMLButtonElement;
+const benchmarkResult   = document.getElementById('benchmarkResult')   as HTMLElement;
+const fullscreenBtn     = document.getElementById('fullscreenBtn')     as HTMLButtonElement;
+const substepsSelect    = document.getElementById('substepsSelect')    as HTMLSelectElement;
 
 // ── UI & Engine state ─────────────────────────────────────────────────────────
 
@@ -70,6 +79,8 @@ let running = false;
 let painting = false;
 let paintAlive = true;
 let selectedPattern: string | null = null;
+let patternRotation = 0; // 0, 90, 180, 270 degrees
+let lastHoverCell: { row: number; col: number } | null = null;
 const patternCatalog = new Map<string, PatternInfo>();
 
 let webglEngine: WebGLEngine | null = null;
@@ -89,7 +100,7 @@ function initGPU(rows: number, cols: number): void {
     if (!webglEngine) {
       webglEngine = new WebGLEngine(board, rows, cols);
     } else {
-      webglEngine.resize(rows, cols);
+      webglEngine.resize(rows, cols, false);
     }
   } catch (e) {
     console.warn('WebGL2 not available, falling back to server simulation:', e);
@@ -123,9 +134,35 @@ function applyState(next: GameState): void {
   liveEl.textContent       = String(state.liveCells);
   sizeEl.textContent       = `${state.rows} \u00d7 ${state.cols}`;
 
+  // Ensure state.cells has complete 2D dimensions
+  if (!state.cells || state.cells.length !== state.rows || (state.cells[0] && state.cells[0].length !== state.cols)) {
+    const safeCells: boolean[][] = [];
+    for (let r = 0; r < state.rows; r++) {
+      const row: boolean[] = [];
+      for (let c = 0; c < state.cols; c++) {
+        row.push(state.cells && state.cells[r] && state.cells[r][c] ? true : false);
+      }
+      safeCells.push(row);
+    }
+    state.cells = safeCells;
+  }
+
+  if (state.wallMode !== undefined && wallToggle) {
+    wallToggle.checked = state.wallMode;
+  }
+
+  // Keep grid resolution select in sync
+  const sizeVal = `${state.rows}x${state.cols}`;
+  if ([...gridSizeSelect.options].some(o => o.value === sizeVal)) {
+    gridSizeSelect.value = sizeVal;
+  }
+
   if (webglEngine) {
     if (webglEngine.rows !== state.rows || webglEngine.cols !== state.cols) {
-      webglEngine.resize(state.rows, state.cols);
+      webglEngine.resize(state.rows, state.cols, false);
+    }
+    if (state.wallMode !== undefined) {
+      webglEngine.wallMode = state.wallMode;
     }
     if (state.cells && state.cells.length > 0) {
       webglEngine.loadGrid(state.cells);
@@ -223,18 +260,38 @@ const DEFAULT_PATTERNS: Record<string, [number, number][]> = {
   ],
 };
 
-async function stamp(row: number, col: number): Promise<void> {
-  const patternId = selectedPattern!;
+function getTransformedPatternCells(patternId: string, rotationDeg: number): [number, number][] {
   const pattern = patternCatalog.get(patternId);
   const rawCells: [number, number][] = (pattern && pattern.cells && pattern.cells.length > 0)
     ? pattern.cells.map(c => [c.row, c.col] as [number, number])
     : (DEFAULT_PATTERNS[patternId.toLowerCase()] || []);
 
+  if (rawCells.length === 0) return [];
+
+  let cells = rawCells.map(([r, c]) => [r, c] as [number, number]);
+  const steps = Math.floor(((rotationDeg % 360) + 360) % 360 / 90);
+  for (let s = 0; s < steps; s++) {
+    // 90° clockwise: newRow = oldCol, newCol = -oldRow
+    cells = cells.map(([r, c]) => [c, -r]);
+  }
+
+  // Normalize so top-left bounding box starts at (0, 0)
+  const minR = Math.min(...cells.map(c => c[0]));
+  const minC = Math.min(...cells.map(c => c[1]));
+  return cells.map(([r, c]) => [r - minR, c - minC]);
+}
+
+async function stamp(row: number, col: number): Promise<void> {
+  if (!selectedPattern) return;
+  const patternId = selectedPattern;
+  const rawCells = getTransformedPatternCells(patternId, patternRotation);
+  if (rawCells.length === 0) return;
+
   if (currentEngine === 'client-gpu' && webglEngine) {
-    if (rawCells.length > 0) {
-      for (const [dr, dc] of rawCells) {
-        const r = ((row + dr) % state.rows + state.rows) % state.rows;
-        const c = ((col + dc) % state.cols + state.cols) % state.cols;
+    for (const [dr, dc] of rawCells) {
+      const r = ((row + dr) % state.rows + state.rows) % state.rows;
+      const c = ((col + dc) % state.cols + state.cols) % state.cols;
+      if (!webglEngine.wallMode || (r >= 2 && r < state.rows - 2 && c >= 2 && c < state.cols - 2)) {
         webglEngine.setCell(r, c, true);
         if (state.cells && state.cells[r]) {
           state.cells[r][c] = true;
@@ -246,10 +303,22 @@ async function stamp(row: number, col: number): Promise<void> {
     state.liveCells = extracted.liveCells;
     liveEl.textContent = String(state.liveCells);
   } else {
-    const body: PatternStampRequest = { id: patternId, row, col };
-    const updated = await api<GameState>('/api/game/pattern', {
+    // Server mode: update client grid array and upload cleanly
+    for (const [dr, dc] of rawCells) {
+      const r = ((row + dr) % state.rows + state.rows) % state.rows;
+      const c = ((col + dc) % state.cols + state.cols) % state.cols;
+      if (state.cells && state.cells[r]) {
+        state.cells[r][c] = true;
+      }
+    }
+    const updated = await api<GameState>('/api/game/grid', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        rows: state.rows,
+        cols: state.cols,
+        generation: state.generation,
+        cells: state.cells,
+      } as GridSyncRequest),
     });
     applyState(updated);
   }
@@ -296,7 +365,7 @@ function gpuPlayLoop(): void {
   const stepsPerFrame = substepsSelect ? Number(substepsSelect.value) : 1;
 
   if (interval === 0) {
-    // Uncapped: runs natively at hardware display refresh rate (60Hz, 120Hz, 144Hz, 240Hz+)
+    // Uncapped: runs natively at hardware display refresh rate
     for (let i = 0; i < stepsPerFrame; i++) {
       stepGPUNoRender();
     }
@@ -316,7 +385,7 @@ function gpuPlayLoop(): void {
     }
   }
 
-  // Sample live cell count every 60 frames without stalling GPU pipeline
+  // Sample live cell count every 60 frames
   if (state.generation % 60 === 0 && webglEngine) {
     const extracted = webglEngine.extractGrid();
     liveEl.textContent = String(extracted.liveCells);
@@ -400,18 +469,35 @@ document.addEventListener('fullscreenchange', () => {
   }
 });
 
-// ── Pattern Catalog ───────────────────────────────────────────────────────────
+// ── Pattern Catalog & Precision Placement ────────────────────────────────────
+
+function updatePatternHint(): void {
+  if (selectedPattern) {
+    const rotText = patternRotation > 0 ? ` (Rotated ${patternRotation}°) ` : ' ';
+    hintEl.textContent = `Stamping \u201c${selectedPattern}\u201d${rotText}· Move mouse for preview, click to stamp. Press "R" to rotate.`;
+  } else {
+    hintEl.textContent = 'Click or drag to paint cells. Choose a pattern, then click the board to stamp it.';
+  }
+}
 
 function setPattern(id: string | null): void {
   selectedPattern = id;
-  cancelPattern.hidden = !id;
-  hintEl.textContent = id
-    ? `Stamping \u201c${id}\u201d. Click the board to place it.`
-    : 'Click or drag to paint cells. Choose a pattern, then click the board to stamp it.';
+  patternRotation = 0;
+
+  if (patternBadge) patternBadge.hidden = !id;
+  if (patternTools) patternTools.hidden = !id;
+  if (cancelPattern) cancelPattern.hidden = !id;
+
+  updatePatternHint();
 
   [...patternList.querySelectorAll<HTMLButtonElement>('.pattern')].forEach((button) => {
     button.classList.toggle('active', button.dataset.id === id);
   });
+
+  if (!id && webglEngine) {
+    webglEngine.clearGhostPattern();
+    renderGPU();
+  }
 }
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
@@ -475,7 +561,79 @@ densityInput.addEventListener('input', () => {
   densityValue.textContent = `${Math.round(Number(densityInput.value) * 100)}%`;
 });
 
-cancelPattern.addEventListener('click', () => setPattern(null));
+cancelPattern?.addEventListener('click', () => setPattern(null));
+
+rotatePatternBtn?.addEventListener('click', () => {
+  if (!selectedPattern) return;
+  patternRotation = (patternRotation + 90) % 360;
+  updatePatternHint();
+  if (lastHoverCell && webglEngine) {
+    webglEngine.setGhostPattern(
+      lastHoverCell.col,
+      lastHoverCell.row,
+      getTransformedPatternCells(selectedPattern, patternRotation)
+    );
+    renderGPU();
+  }
+});
+
+centerPatternBtn?.addEventListener('click', async () => {
+  if (!selectedPattern) return;
+  const rawCells = getTransformedPatternCells(selectedPattern, patternRotation);
+  if (rawCells.length === 0) return;
+  const maxR = Math.max(...rawCells.map(c => c[0]));
+  const maxC = Math.max(...rawCells.map(c => c[1]));
+  const centerR = Math.max(0, Math.floor((state.rows - maxR) / 2));
+  const centerC = Math.max(0, Math.floor((state.cols - maxC) / 2));
+  await stamp(centerR, centerC);
+  hintEl.textContent = `Stamped \u201c${selectedPattern}\u201d at grid center!`;
+});
+
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+  if ((e.key === 'r' || e.key === 'R') && selectedPattern) {
+    patternRotation = (patternRotation + 90) % 360;
+    updatePatternHint();
+    if (lastHoverCell && webglEngine) {
+      webglEngine.setGhostPattern(
+        lastHoverCell.col,
+        lastHoverCell.row,
+        getTransformedPatternCells(selectedPattern, patternRotation)
+      );
+      renderGPU();
+    }
+  } else if (e.key === 'Escape' && selectedPattern) {
+    setPattern(null);
+  }
+});
+
+// Wall Collision Buffer Toggle Listener
+wallToggle?.addEventListener('change', async () => {
+  const enabled = wallToggle.checked;
+  if (webglEngine) {
+    webglEngine.setWallMode(enabled);
+    renderGPU();
+    const extracted = webglEngine.extractGrid();
+    state.cells = extracted.cells;
+    state.liveCells = extracted.liveCells;
+    liveEl.textContent = String(state.liveCells);
+  }
+
+  try {
+    const res = await api<GameState>('/api/game/wall', {
+      method: 'POST',
+      body: JSON.stringify({ enabled } as WallModeRequest),
+    });
+    if (currentEngine !== 'client-gpu') {
+      applyState(res);
+    }
+  } catch (e) {
+    console.warn('Wall mode backend sync:', e);
+  }
+
+  hintEl.textContent = enabled
+    ? '🧱 2-Cell Wall Barrier active: Boundary acts as an absorbing collision wall (stops wrap-around).'
+    : '🔄 Toroidal Wrap active: Cells wrap around grid boundaries seamlessly.';
+});
 
 // Color mode segmentation listener
 colorModeSelect.addEventListener('change', () => {
@@ -486,12 +644,36 @@ colorModeSelect.addEventListener('change', () => {
   }
 });
 
-// Engine switcher listener
+// Engine switcher listener — Zero-Loss Bidirectional Synchronization
 engineSelect.addEventListener('change', async () => {
   const wasRunning = running;
   stop();
 
-  currentEngine = engineSelect.value as EngineMode;
+  const nextEngine = engineSelect.value as EngineMode;
+
+  // If switching from GPU to Server CPU: upload current GPU cells to server!
+  if (currentEngine === 'client-gpu' && (nextEngine === 'server-parallel' || nextEngine === 'server-single')) {
+    if (webglEngine) {
+      const extracted = webglEngine.extractGrid();
+      state.cells = extracted.cells;
+      state.liveCells = extracted.liveCells;
+      try {
+        await api<GameState>('/api/game/grid', {
+          method: 'POST',
+          body: JSON.stringify({
+            rows: state.rows,
+            cols: state.cols,
+            generation: state.generation,
+            cells: extracted.cells,
+          } as GridSyncRequest),
+        });
+      } catch (e) {
+        console.warn('Grid upload to server:', e);
+      }
+    }
+  }
+
+  currentEngine = nextEngine;
   updateEngineLabels();
 
   if (currentEngine === 'server-parallel') {
@@ -506,23 +688,55 @@ engineSelect.addEventListener('change', async () => {
     });
   }
 
-  // Refresh and sync state
-  applyState(await api<GameState>('/api/game'));
+  // Sync state from server
+  const serverState = await api<GameState>('/api/game');
+  applyState(serverState);
 
   if (wasRunning) {
     start();
   }
 });
 
-// Grid resolution resize listener
+// Grid resolution resize listener — Zero-Loss Resizing (preserves cells)
 gridSizeSelect.addEventListener('change', async () => {
+  const wasRunning = running;
   stop();
+
   const [rows, cols] = gridSizeSelect.value.split('x').map(Number);
+
+  // Extract currently alive cells to preserve them
+  let currentCells: boolean[][] = [];
+  if (currentEngine === 'client-gpu' && webglEngine) {
+    currentCells = webglEngine.extractGrid().cells;
+  } else if (state.cells && state.cells.length > 0) {
+    currentCells = state.cells;
+  }
+
+  const newCells: boolean[][] = [];
+  const copyR = Math.min(currentCells.length, rows);
+  const copyC = currentCells.length > 0 ? Math.min(currentCells[0].length, cols) : 0;
+  let liveCount = 0;
+  const isWall = webglEngine ? webglEngine.wallMode : false;
+
+  for (let r = 0; r < rows; r++) {
+    const row: boolean[] = [];
+    for (let c = 0; c < cols; c++) {
+      let alive = (r < copyR && c < copyC) ? currentCells[r][c] : false;
+      if (isWall && (r < 2 || r >= rows - 2 || c < 2 || c >= cols - 2)) {
+        alive = false;
+      }
+      row.push(alive);
+      if (alive) liveCount++;
+    }
+    newCells.push(row);
+  }
 
   state.rows = rows;
   state.cols = cols;
-  state.generation = 0;
+  state.cells = newCells;
+  state.liveCells = liveCount;
   sizeEl.textContent = `${rows} \u00d7 ${cols}`;
+  liveEl.textContent = String(liveCount);
 
   // Maintain aspect ratio: square boards use 1024x1024 internal buffer
   if (rows === cols) {
@@ -534,24 +748,33 @@ gridSizeSelect.addEventListener('change', async () => {
   }
 
   if (webglEngine) {
-    webglEngine.resize(rows, cols);
-    webglEngine.clear();
+    webglEngine.resize(rows, cols, false);
+    webglEngine.loadGrid(newCells);
+    renderGPU();
   }
 
-  // Keep server in sync
+  // Keep server in sync with preserved cells
   try {
-    const body: GridSizeRequest = { rows, cols };
-    await api<GameState>('/api/game/reset', {
+    await api<GameState>('/api/game/resize', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ rows, cols, preserveCells: true } as GridSizeRequest),
+    });
+    await api<GameState>('/api/game/grid', {
+      method: 'POST',
+      body: JSON.stringify({
+        rows,
+        cols,
+        generation: state.generation,
+        cells: newCells,
+      } as GridSyncRequest),
     });
   } catch (e) {
     console.warn('Backend resize sync:', e);
   }
 
-  generationEl.textContent = '0';
-  liveEl.textContent = '0';
-  renderGPU();
+  if (wasRunning) {
+    start();
+  }
 });
 
 // Stress test preset buttons
@@ -580,9 +803,10 @@ document.querySelectorAll<HTMLButtonElement>('.stress-btn').forEach((btn) => {
     board.height = 1024;
 
     if (webglEngine) {
-      webglEngine.resize(rows, cols);
+      webglEngine.resize(rows, cols, false);
       webglEngine.loadStressPreset(preset);
       const extracted = webglEngine.extractGrid();
+      state.cells = extracted.cells;
       state.liveCells = extracted.liveCells;
       liveEl.textContent = String(state.liveCells);
       renderGPU();
@@ -591,7 +815,7 @@ document.querySelectorAll<HTMLButtonElement>('.stress-btn').forEach((btn) => {
     try {
       await api<GameState>('/api/game/reset', {
         method: 'POST',
-        body: JSON.stringify({ rows, cols } as GridSizeRequest),
+        body: JSON.stringify({ rows, cols, preserveCells: false } as GridSizeRequest),
       });
     } catch {
       // Ignored for huge GPU grids
@@ -643,10 +867,29 @@ board.addEventListener('pointerdown', async (event: PointerEvent) => {
 });
 
 board.addEventListener('pointermove', async (event: PointerEvent) => {
-  if (!painting || selectedPattern) return;
   const { row, col } = cellFromEvent(event);
+  lastHoverCell = { row, col };
+
+  if (selectedPattern) {
+    const rawCells = getTransformedPatternCells(selectedPattern, patternRotation);
+    if (webglEngine) {
+      webglEngine.setGhostPattern(col, row, rawCells);
+      renderGPU();
+    }
+    return;
+  }
+
+  if (!painting) return;
   if (state.cells && state.cells[row] && state.cells[row][col] === paintAlive) return;
   await paintCell(row, col, paintAlive);
+});
+
+board.addEventListener('pointerleave', () => {
+  lastHoverCell = null;
+  if (selectedPattern && webglEngine) {
+    webglEngine.clearGhostPattern();
+    renderGPU();
+  }
 });
 
 board.addEventListener('pointerup',     () => { painting = false; });

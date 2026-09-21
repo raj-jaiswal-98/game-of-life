@@ -25,6 +25,7 @@ public class GameService {
     private boolean[][] cells;
     private int generation;
     private String engineMode = "PARALLEL";
+    private boolean wallMode = false;
 
     public GameService() {
         reset(DEFAULT_ROWS, DEFAULT_COLS);
@@ -52,11 +53,86 @@ public class GameService {
         }
     }
 
+    public GameStateResponse setWallMode(boolean enabled) {
+        synchronized (lock) {
+            this.wallMode = enabled;
+            if (wallMode && cells != null) {
+                int rows = cells.length;
+                int cols = cells[0].length;
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        if (LifeEngine.isWall(r, c, rows, cols)) {
+                            cells[r][c] = false;
+                        }
+                    }
+                }
+            }
+            return toResponse();
+        }
+    }
+
+    public boolean isWallMode() {
+        synchronized (lock) {
+            return wallMode;
+        }
+    }
+
     public GameStateResponse reset(int rows, int cols) {
+        return resize(rows, cols, false);
+    }
+
+    public GameStateResponse resize(int rows, int cols, boolean preserveCells) {
+        validateSize(rows, cols);
+        synchronized (lock) {
+            boolean[][] newCells = new boolean[rows][cols];
+            if (preserveCells && cells != null) {
+                int copyRows = Math.min(cells.length, rows);
+                int copyCols = Math.min(cells[0].length, cols);
+                for (int r = 0; r < copyRows; r++) {
+                    System.arraycopy(cells[r], 0, newCells[r], 0, copyCols);
+                }
+            } else {
+                generation = 0;
+            }
+            cells = newCells;
+            if (wallMode) {
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        if (LifeEngine.isWall(r, c, rows, cols)) {
+                            cells[r][c] = false;
+                        }
+                    }
+                }
+            }
+            return toResponse();
+        }
+    }
+
+    public GameStateResponse setGrid(int rows, int cols, Integer gen, boolean[][] newCells) {
         validateSize(rows, cols);
         synchronized (lock) {
             cells = new boolean[rows][cols];
-            generation = 0;
+            if (newCells != null) {
+                int rLimit = Math.min(rows, newCells.length);
+                for (int r = 0; r < rLimit; r++) {
+                    if (newCells[r] != null) {
+                        int cLimit = Math.min(cols, newCells[r].length);
+                        System.arraycopy(newCells[r], 0, cells[r], 0, cLimit);
+                    }
+                }
+            }
+            if (gen != null && gen >= 0) {
+                this.generation = gen;
+            }
+            if (wallMode) {
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        if (LifeEngine.isWall(r, c, rows, cols)) {
+                            cells[r][c] = false;
+                        }
+                    }
+                }
+            }
             return toResponse();
         }
     }
@@ -72,6 +148,9 @@ public class GameService {
     public GameStateResponse toggle(int row, int col) {
         synchronized (lock) {
             assertInBounds(row, col);
+            if (wallMode && LifeEngine.isWall(row, col, cells.length, cells[0].length)) {
+                return toResponse();
+            }
             cells[row][col] = !cells[row][col];
             return toResponse();
         }
@@ -80,6 +159,9 @@ public class GameService {
     public GameStateResponse setCell(int row, int col, boolean alive) {
         synchronized (lock) {
             assertInBounds(row, col);
+            if (wallMode && LifeEngine.isWall(row, col, cells.length, cells[0].length)) {
+                return toResponse();
+            }
             cells[row][col] = alive;
             return toResponse();
         }
@@ -88,9 +170,9 @@ public class GameService {
     public GameStateResponse step() {
         synchronized (lock) {
             if ("PARALLEL".equalsIgnoreCase(engineMode)) {
-                cells = ParallelLifeEngine.nextGeneration(cells);
+                cells = ParallelLifeEngine.nextGeneration(cells, wallMode);
             } else {
-                cells = LifeEngine.nextGeneration(cells);
+                cells = LifeEngine.nextGeneration(cells, wallMode);
             }
             generation++;
             return toResponse();
@@ -105,7 +187,11 @@ public class GameService {
             ThreadLocalRandom random = ThreadLocalRandom.current();
             for (int r = 0; r < cells.length; r++) {
                 for (int c = 0; c < cells[r].length; c++) {
-                    cells[r][c] = random.nextDouble() < density;
+                    if (wallMode && LifeEngine.isWall(r, c, cells.length, cells[r].length)) {
+                        cells[r][c] = false;
+                    } else {
+                        cells[r][c] = random.nextDouble() < density;
+                    }
                 }
             }
             generation = 0;
@@ -124,7 +210,9 @@ public class GameService {
             for (Patterns.Offset offset : pattern.cells()) {
                 int r = Math.floorMod(originRow + offset.row(), rows);
                 int c = Math.floorMod(originCol + offset.col(), cols);
-                cells[r][c] = true;
+                if (!wallMode || !LifeEngine.isWall(r, c, rows, cols)) {
+                    cells[r][c] = true;
+                }
             }
             return toResponse();
         }
@@ -215,6 +303,6 @@ public class GameService {
         int liveCount = "PARALLEL".equalsIgnoreCase(engineMode)
                 ? ParallelLifeEngine.countLiveCells(cells)
                 : LifeEngine.countLiveCells(cells);
-        return new GameStateResponse(rows, cols, generation, liveCount, copy, engineMode);
+        return new GameStateResponse(rows, cols, generation, liveCount, copy, engineMode, wallMode);
     }
 }

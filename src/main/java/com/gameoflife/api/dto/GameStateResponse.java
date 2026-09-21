@@ -6,9 +6,14 @@ public record GameStateResponse(
         int generation,
         int liveCells,
         boolean[][] cells,
-        String engineMode
+        String engineMode,
+        boolean wallMode
 ) {
     public GameStateResponse(int rows, int cols, int generation, int liveCells, boolean[][] cells) {
-        this(rows, cols, generation, liveCells, cells, "SEQUENTIAL");
+        this(rows, cols, generation, liveCells, cells, "SEQUENTIAL", false);
+    }
+
+    public GameStateResponse(int rows, int cols, int generation, int liveCells, boolean[][] cells, String engineMode) {
+        this(rows, cols, generation, liveCells, cells, engineMode, false);
     }
 }
