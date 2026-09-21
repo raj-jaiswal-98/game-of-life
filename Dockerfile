@@ -9,6 +9,7 @@ RUN mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+RUN apk add --no-cache pciutils mesa-dri-gallium ocl-icd || true
 RUN addgroup -S life && adduser -S life -G life
 COPY --from=build /src/target/game-of-life-0.0.1-SNAPSHOT.jar app.jar
 USER life

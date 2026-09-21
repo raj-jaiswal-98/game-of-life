@@ -42,6 +42,17 @@ public class GameController {
                 .toList();
     }
 
+    @GetMapping("/hardware")
+    public com.gameoflife.api.dto.HardwareInfo hardware() {
+        return new com.gameoflife.api.dto.HardwareInfo(
+                com.gameoflife.engine.HardwareAccelerator.isGpuAvailable(),
+                com.gameoflife.engine.HardwareAccelerator.getDeviceName(),
+                com.gameoflife.engine.HardwareAccelerator.getAvailableProcessors(),
+                System.getProperty("os.name") + " " + System.getProperty("os.version"),
+                System.getProperty("java.version")
+        );
+    }
+
     @PostMapping("/engine")
     public GameStateResponse setEngine(@RequestBody EngineRequest request) {
         return gameService.setEngineMode(request.mode());

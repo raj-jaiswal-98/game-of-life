@@ -53,6 +53,17 @@ export interface BenchmarkResponse {
   speedupFactor: number;
 }
 
+/**
+ * Mirrors HardwareInfo.java
+ */
+export interface HardwareInfo {
+  gpuAvailable: boolean;
+  deviceName: string;
+  cpuCores: number;
+  os: string;
+  javaVersion: string;
+}
+
 // ── Requests ─────────────────────────────────────────────────────────────────
 
 /** Mirrors CellRequest.java — used by POST /api/game/toggle */

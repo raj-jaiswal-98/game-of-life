@@ -25,6 +25,7 @@ import type {
   GridSizeRequest,
   EngineRequest,
   BenchmarkResponse,
+  HardwareInfo,
 } from './types';
 
 // ── DOM elements ─────────────────────────────────────────────────────────────
@@ -185,14 +186,55 @@ async function paintCell(row: number, col: number, alive: boolean): Promise<void
   }
 }
 
+const DEFAULT_PATTERNS: Record<string, [number, number][]> = {
+  glider: [[0, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
+  lwss: [[0, 1], [0, 4], [1, 0], [2, 0], [2, 4], [3, 0], [3, 1], [3, 2], [3, 3]],
+  blinker: [[0, 0], [0, 1], [0, 2]],
+  toad: [[0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2]],
+  beacon: [[0, 0], [0, 1], [1, 0], [1, 1], [2, 2], [2, 3], [3, 2], [3, 3]],
+  pulsar: [
+    [0, 2], [0, 3], [0, 4], [0, 8], [0, 9], [0, 10],
+    [2, 0], [2, 5], [2, 7], [2, 12],
+    [3, 0], [3, 5], [3, 7], [3, 12],
+    [4, 0], [4, 5], [4, 7], [4, 12],
+    [5, 2], [5, 3], [5, 4], [5, 8], [5, 9], [5, 10],
+    [7, 2], [7, 3], [7, 4], [7, 8], [7, 9], [7, 10],
+    [8, 0], [8, 5], [8, 7], [8, 12],
+    [9, 0], [9, 5], [9, 7], [9, 12],
+    [10, 0], [10, 5], [10, 7], [10, 12],
+    [12, 2], [12, 3], [12, 4], [12, 8], [12, 9], [12, 10]
+  ],
+  pentadecathlon: [
+    [0, 1], [1, 1], [2, 0], [2, 2], [3, 1], [4, 1],
+    [5, 1], [6, 1], [7, 0], [7, 2], [8, 1], [9, 1]
+  ],
+  block: [[0, 0], [0, 1], [1, 0], [1, 1]],
+  beehive: [[0, 1], [0, 2], [1, 0], [1, 3], [2, 1], [2, 2]],
+  gosper: [
+    [0, 24],
+    [1, 22], [1, 24],
+    [2, 12], [2, 13], [2, 20], [2, 21], [2, 34], [2, 35],
+    [3, 11], [3, 15], [3, 20], [3, 21], [3, 34], [3, 35],
+    [4, 0], [4, 1], [4, 10], [4, 16], [4, 20], [4, 21],
+    [5, 0], [5, 1], [5, 10], [5, 14], [5, 16], [5, 17], [5, 22], [5, 24],
+    [6, 10], [6, 16], [6, 24],
+    [7, 11], [7, 15],
+    [8, 12], [8, 13]
+  ],
+};
+
 async function stamp(row: number, col: number): Promise<void> {
-  const pattern = patternCatalog.get(selectedPattern!);
+  const patternId = selectedPattern!;
+  const pattern = patternCatalog.get(patternId);
+  const rawCells: [number, number][] = (pattern && pattern.cells && pattern.cells.length > 0)
+    ? pattern.cells.map(c => [c.row, c.col] as [number, number])
+    : (DEFAULT_PATTERNS[patternId.toLowerCase()] || []);
 
   if (currentEngine === 'client-gpu' && webglEngine) {
-    if (pattern && pattern.cells && pattern.cells.length > 0) {
-      for (const offset of pattern.cells) {
-        const r = ((row + offset.row) % state.rows + state.rows) % state.rows;
-        const c = ((col + offset.col) % state.cols + state.cols) % state.cols;
+    if (rawCells.length > 0) {
+      for (const [dr, dc] of rawCells) {
+        const r = ((row + dr) % state.rows + state.rows) % state.rows;
+        const c = ((col + dc) % state.cols + state.cols) % state.cols;
         webglEngine.setCell(r, c, true);
         if (state.cells && state.cells[r]) {
           state.cells[r][c] = true;
@@ -204,7 +246,7 @@ async function stamp(row: number, col: number): Promise<void> {
     state.liveCells = extracted.liveCells;
     liveEl.textContent = String(state.liveCells);
   } else {
-    const body: PatternStampRequest = { id: selectedPattern!, row, col };
+    const body: PatternStampRequest = { id: patternId, row, col };
     const updated = await api<GameState>('/api/game/pattern', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -641,6 +683,18 @@ async function boot(): Promise<void> {
     speedValue.textContent = '⚡ Uncapped (Hardware Native Hz)';
   } else {
     speedValue.textContent = `${initialSpeed} ms (${Math.round(1000 / initialSpeed)} tps)`;
+  }
+
+  // Probe backend hardware status
+  try {
+    const hw = await api<HardwareInfo>('/api/game/hardware');
+    if (hw.gpuAvailable) {
+      console.log(`⚡ Backend Container GPU: ${hw.deviceName}`);
+    } else {
+      console.log(`⚙️ Backend Container CPU: ${hw.deviceName}`);
+    }
+  } catch {
+    // Non-critical
   }
 }
 
