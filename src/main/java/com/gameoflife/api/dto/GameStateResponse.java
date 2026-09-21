@@ -5,6 +5,10 @@ public record GameStateResponse(
         int cols,
         int generation,
         int liveCells,
-        boolean[][] cells
+        boolean[][] cells,
+        String engineMode
 ) {
+    public GameStateResponse(int rows, int cols, int generation, int liveCells, boolean[][] cells) {
+        this(rows, cols, generation, liveCells, cells, "SEQUENTIAL");
+    }
 }

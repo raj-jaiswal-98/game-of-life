@@ -3,10 +3,6 @@
  *
  * Keep this file in sync with the Java records under:
  *   src/main/java/com/gameoflife/api/dto/
- *
- * When a new field is added to a Java record (e.g. `wrap` in GameStateResponse
- * for F01/R9), add it here too so the compiler catches every callsite that
- * needs to handle the new field.
  */
 
 // ── Responses ────────────────────────────────────────────────────────────────
@@ -22,16 +18,39 @@ export interface GameState {
   liveCells: number;
   /** Dense boolean grid: cells[row][col] === true means the cell is alive. */
   cells: boolean[][];
+  engineMode?: string;
 }
 
 /**
  * Mirrors PatternInfo.java
  * Returned as an array by GET /api/game/patterns.
  */
+export interface PatternOffset {
+  row: number;
+  col: number;
+}
+
 export interface PatternInfo {
   id: string;
   name: string;
   description: string;
+  cells?: PatternOffset[];
+}
+
+/**
+ * Mirrors BenchmarkResponse.java
+ */
+export interface BenchmarkResponse {
+  generations: number;
+  rows: number;
+  cols: number;
+  totalCells: number;
+  availableProcessors: number;
+  sequentialDurationMs: number;
+  parallelDurationMs: number;
+  sequentialGps: number;
+  parallelGps: number;
+  speedupFactor: number;
 }
 
 // ── Requests ─────────────────────────────────────────────────────────────────
@@ -65,4 +84,16 @@ export interface PatternStampRequest {
 export interface GridSizeRequest {
   rows: number;
   cols: number;
+}
+
+/** Mirrors EngineRequest.java — used by POST /api/game/engine */
+export interface EngineRequest {
+  mode: string;
+}
+
+/** Mirrors BenchmarkRequest.java — used by POST /api/game/benchmark */
+export interface BenchmarkRequest {
+  generations?: number;
+  rows?: number;
+  cols?: number;
 }

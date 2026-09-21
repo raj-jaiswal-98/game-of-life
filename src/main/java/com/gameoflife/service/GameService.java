@@ -1,12 +1,16 @@
 package com.gameoflife.service;
 
+import com.gameoflife.api.dto.BenchmarkRequest;
+import com.gameoflife.api.dto.BenchmarkResponse;
 import com.gameoflife.api.dto.GameStateResponse;
 import com.gameoflife.engine.LifeEngine;
+import com.gameoflife.engine.ParallelLifeEngine;
 import com.gameoflife.engine.Patterns;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -15,11 +19,12 @@ public class GameService {
     public static final int DEFAULT_ROWS = 42;
     public static final int DEFAULT_COLS = 72;
     public static final int MIN_SIZE = 10;
-    public static final int MAX_SIZE = 120;
+    public static final int MAX_SIZE = 8192;
 
     private final Object lock = new Object();
     private boolean[][] cells;
     private int generation;
+    private String engineMode = "PARALLEL";
 
     public GameService() {
         reset(DEFAULT_ROWS, DEFAULT_COLS);
@@ -28,6 +33,22 @@ public class GameService {
     public GameStateResponse snapshot() {
         synchronized (lock) {
             return toResponse();
+        }
+    }
+
+    public GameStateResponse setEngineMode(String mode) {
+        if (mode == null || (!mode.equalsIgnoreCase("SEQUENTIAL") && !mode.equalsIgnoreCase("PARALLEL"))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Engine mode must be SEQUENTIAL or PARALLEL");
+        }
+        synchronized (lock) {
+            this.engineMode = mode.toUpperCase();
+            return toResponse();
+        }
+    }
+
+    public String getEngineMode() {
+        synchronized (lock) {
+            return engineMode;
         }
     }
 
@@ -66,7 +87,11 @@ public class GameService {
 
     public GameStateResponse step() {
         synchronized (lock) {
-            cells = LifeEngine.nextGeneration(cells);
+            if ("PARALLEL".equalsIgnoreCase(engineMode)) {
+                cells = ParallelLifeEngine.nextGeneration(cells);
+            } else {
+                cells = LifeEngine.nextGeneration(cells);
+            }
             generation++;
             return toResponse();
         }
@@ -105,6 +130,66 @@ public class GameService {
         }
     }
 
+    public BenchmarkResponse benchmark(BenchmarkRequest request) {
+        int generations = (request != null && request.generations() != null && request.generations() > 0)
+                ? request.generations() : 200;
+        int rows = (request != null && request.rows() != null && request.rows() >= MIN_SIZE && request.rows() <= MAX_SIZE)
+                ? request.rows() : 128;
+        int cols = (request != null && request.cols() != null && request.cols() >= MIN_SIZE && request.cols() <= MAX_SIZE)
+                ? request.cols() : 128;
+
+        // Create identical initial random grids
+        boolean[][] gridSeq = new boolean[rows][cols];
+        boolean[][] gridPar = new boolean[rows][cols];
+        Random rand = new Random(1337);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                boolean val = rand.nextDouble() < 0.25;
+                gridSeq[r][c] = val;
+                gridPar[r][c] = val;
+            }
+        }
+
+        // Warm-up JIT
+        for (int i = 0; i < 20; i++) {
+            gridSeq = LifeEngine.nextGeneration(gridSeq);
+            gridPar = ParallelLifeEngine.nextGeneration(gridPar);
+        }
+
+        // Sequential benchmark
+        long startSeq = System.nanoTime();
+        for (int i = 0; i < generations; i++) {
+            gridSeq = LifeEngine.nextGeneration(gridSeq);
+        }
+        long seqDurationNanos = Math.max(1, System.nanoTime() - startSeq);
+        long seqDurationMs = seqDurationNanos / 1_000_000L;
+
+        // Parallel benchmark
+        long startPar = System.nanoTime();
+        for (int i = 0; i < generations; i++) {
+            gridPar = ParallelLifeEngine.nextGeneration(gridPar);
+        }
+        long parDurationNanos = Math.max(1, System.nanoTime() - startPar);
+        long parDurationMs = parDurationNanos / 1_000_000L;
+
+        double seqGps = (generations * 1_000_000_000.0) / seqDurationNanos;
+        double parGps = (generations * 1_000_000_000.0) / parDurationNanos;
+        double speedup = (double) seqDurationNanos / (double) parDurationNanos;
+
+        return new BenchmarkResponse(
+                generations,
+                rows,
+                cols,
+                rows * cols,
+                Runtime.getRuntime().availableProcessors(),
+                seqDurationMs,
+                parDurationMs,
+                Math.round(seqGps * 10.0) / 10.0,
+                Math.round(parGps * 10.0) / 10.0,
+                Math.round(speedup * 100.0) / 100.0
+        );
+    }
+
     private void validateSize(int rows, int cols) {
         if (rows < MIN_SIZE || cols < MIN_SIZE || rows > MAX_SIZE || cols > MAX_SIZE) {
             throw new ResponseStatusException(
@@ -127,6 +212,9 @@ public class GameService {
         for (int r = 0; r < rows; r++) {
             System.arraycopy(cells[r], 0, copy[r], 0, cols);
         }
-        return new GameStateResponse(rows, cols, generation, LifeEngine.countLiveCells(cells), copy);
+        int liveCount = "PARALLEL".equalsIgnoreCase(engineMode)
+                ? ParallelLifeEngine.countLiveCells(cells)
+                : LifeEngine.countLiveCells(cells);
+        return new GameStateResponse(rows, cols, generation, liveCount, copy, engineMode);
     }
 }

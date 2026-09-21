@@ -1,6 +1,9 @@
 package com.gameoflife.api;
 
+import com.gameoflife.api.dto.BenchmarkRequest;
+import com.gameoflife.api.dto.BenchmarkResponse;
 import com.gameoflife.api.dto.CellRequest;
+import com.gameoflife.api.dto.EngineRequest;
 import com.gameoflife.api.dto.GameStateResponse;
 import com.gameoflife.api.dto.GridSizeRequest;
 import com.gameoflife.api.dto.PatternInfo;
@@ -35,8 +38,18 @@ public class GameController {
     @GetMapping("/patterns")
     public List<PatternInfo> patterns() {
         return Patterns.all().stream()
-                .map(pattern -> new PatternInfo(pattern.id(), pattern.name(), pattern.description()))
+                .map(pattern -> new PatternInfo(pattern.id(), pattern.name(), pattern.description(), pattern.cells()))
                 .toList();
+    }
+
+    @PostMapping("/engine")
+    public GameStateResponse setEngine(@RequestBody EngineRequest request) {
+        return gameService.setEngineMode(request.mode());
+    }
+
+    @PostMapping("/benchmark")
+    public BenchmarkResponse benchmark(@RequestBody(required = false) BenchmarkRequest request) {
+        return gameService.benchmark(request);
     }
 
     @PostMapping("/reset")
