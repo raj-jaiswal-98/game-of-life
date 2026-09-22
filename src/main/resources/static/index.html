@@ -37,6 +37,15 @@
                 <button id="zoomInBtn" class="icon-btn" type="button" title="Zoom In (+)">+</button>
                 <button id="resetZoomBtn" class="text-btn" type="button" title="Zoom to Fit (0)">Fit</button>
             </div>
+            <select id="themeSelect" class="theme-select" title="Switch Color Theme">
+                <option value="cyber" selected>🪐 Obsidian</option>
+                <option value="synthwave">🌆 Synthwave</option>
+                <option value="bioluminescent">🌊 Deep Ocean</option>
+                <option value="solar">🔥 Solar Flare</option>
+                <option value="matrix">💻 Matrix</option>
+            </select>
+            <button id="soundToggleBtn" class="action-btn" type="button" title="Toggle Generative Ambient Audio (M)">🔇 Sound</button>
+            <button id="shareBoardBtn" class="action-btn" type="button" title="Share Board State via Link">🔗 Share</button>
             <button id="shortcutsBtn" class="action-btn" type="button" title="Keyboard Shortcuts (?)">⌨ Shortcuts</button>
             <button id="fullscreenBtn" class="action-btn" type="button" title="Toggle Fullscreen (F)">⛶ Fullscreen</button>
         </div>
@@ -66,6 +75,7 @@
             <!-- Floating Bottom Transport & Tool Dock -->
             <div class="transport-dock" id="transportDock">
                 <div class="dock-group playback-group">
+                    <button id="stepBack" class="dock-btn" type="button" title="Step Back 1 Generation (← / A)">⏮ Back</button>
                     <button id="play" class="dock-btn primary play-btn" type="button" title="Play / Pause (Space)">▶ Play</button>
                     <button id="step" class="dock-btn" type="button" title="Step 1 Generation (→ / S)">⏭ Step</button>
                     <button id="undo" class="dock-btn" type="button" title="Undo Last Action (Ctrl+Z)">⤺ Undo</button>
@@ -78,6 +88,7 @@
                 <div class="dock-group tool-group">
                     <button id="toolDraw" class="dock-tool-btn active" type="button" data-tool="draw" title="Draw Cells (Key: D)">✏️ Draw</button>
                     <button id="toolErase" class="dock-tool-btn" type="button" data-tool="erase" title="Eraser (Key: E)">🧹 Erase</button>
+                    <button id="toolGravity" class="dock-tool-btn" type="button" data-tool="gravity" title="Gravity Well Attractor (Key: G)">🌀 Gravity</button>
                     <button id="toolPan" class="dock-tool-btn" type="button" data-tool="pan" title="Pan Canvas (Hold Space or Key: P)">✋ Pan</button>
                     <button id="toolStamp" class="dock-tool-btn" type="button" data-tool="stamp" title="Pattern Stamp (Key: T)">📐 Stamp</button>
                 </div>
@@ -89,6 +100,13 @@
                     <button id="brush1" class="brush-btn active" type="button" data-size="1">1×</button>
                     <button id="brush3" class="brush-btn" type="button" data-size="3">3×</button>
                     <button id="brush5" class="brush-btn" type="button" data-size="5">5×</button>
+                </div>
+
+                <div class="dock-divider"></div>
+
+                <div class="dock-group history-group">
+                    <span class="history-label" id="historyLabel">Gen 0</span>
+                    <input id="historySlider" type="range" min="0" max="0" value="0" class="history-slider" title="Time Machine Rewind (Drag to scrub)">
                 </div>
             </div>
 

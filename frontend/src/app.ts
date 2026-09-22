@@ -24,6 +24,7 @@
 import { api } from './api';
 import { WebGLEngine } from './gpu/webgl-engine';
 import { BOARD_SETUPS, BoardSetup, createBoardPreviewCanvas } from './boards';
+import { soundEngine } from './audio';
 import type {
   GameState,
   PatternInfo,
@@ -56,6 +57,9 @@ const zoomOutBtn      = document.getElementById('zoomOutBtn')      as HTMLButton
 const resetZoomBtn    = document.getElementById('resetZoomBtn')    as HTMLButtonElement;
 const shortcutsBtn    = document.getElementById('shortcutsBtn')    as HTMLButtonElement;
 const fullscreenBtn   = document.getElementById('fullscreenBtn')   as HTMLButtonElement;
+const themeSelect     = document.getElementById('themeSelect')     as HTMLSelectElement | null;
+const soundToggleBtn  = document.getElementById('soundToggleBtn')  as HTMLButtonElement | null;
+const shareBoardBtn   = document.getElementById('shareBoardBtn')   as HTMLButtonElement | null;
 
 const fpsEl           = document.getElementById('fps')             as HTMLElement;
 const gpsEl           = document.getElementById('gps')             as HTMLElement;
@@ -64,6 +68,7 @@ const engineBadge     = document.getElementById('engineBadge')     as HTMLElemen
 const hintEl          = document.getElementById('hint')            as HTMLElement;
 
 // Transport Dock
+const stepBackBtn     = document.getElementById('stepBack')        as HTMLButtonElement | null;
 const playBtn         = document.getElementById('play')            as HTMLButtonElement;
 const stepBtn         = document.getElementById('step')            as HTMLButtonElement;
 const undoBtn         = document.getElementById('undo')            as HTMLButtonElement;
@@ -72,12 +77,16 @@ const randomBtn       = document.getElementById('random')          as HTMLButton
 
 const toolDrawBtn     = document.getElementById('toolDraw')        as HTMLButtonElement;
 const toolEraseBtn    = document.getElementById('toolErase')       as HTMLButtonElement;
+const toolGravityBtn  = document.getElementById('toolGravity')     as HTMLButtonElement | null;
 const toolPanBtn      = document.getElementById('toolPan')         as HTMLButtonElement;
 const toolStampBtn    = document.getElementById('toolStamp')       as HTMLButtonElement;
 
 const brush1Btn       = document.getElementById('brush1')          as HTMLButtonElement;
 const brush3Btn       = document.getElementById('brush3')          as HTMLButtonElement;
 const brush5Btn       = document.getElementById('brush5')          as HTMLButtonElement;
+
+const historyLabel    = document.getElementById('historyLabel')    as HTMLElement | null;
+const historySlider   = document.getElementById('historySlider')   as HTMLInputElement | null;
 
 // Tab 1: Config
 const generationEl    = document.getElementById('generation')      as HTMLElement;
@@ -151,7 +160,7 @@ const closeShortcutsModal = document.getElementById('closeShortcutsModal') as HT
 // ── State ─────────────────────────────────────────────────────────────────────
 
 type EngineMode = 'client-gpu' | 'server-parallel' | 'server-single';
-type ActiveTool = 'draw' | 'erase' | 'pan' | 'stamp';
+type ActiveTool = 'draw' | 'erase' | 'pan' | 'stamp' | 'gravity';
 
 let currentEngine: EngineMode = 'client-gpu';
 let state: GameState = { rows: 42, cols: 72, generation: 0, liveCells: 0, cells: [], boundaryMode: 2 };
@@ -172,6 +181,15 @@ let spaceHeld = false;
 
 // Undo Stack (max 20 snapshots)
 const undoStack: boolean[][][] = [];
+
+// History Ring Buffer (Time-Machine Rewind, up to 250 snapshots)
+interface HistorySnapshot {
+  gen: number;
+  liveCount: number;
+  cells: boolean[][];
+}
+const historyBuffer: HistorySnapshot[] = [];
+const MAX_HISTORY = 250;
 
 // Patterns & Transforms
 let selectedPattern: string | null = null;
@@ -595,10 +613,12 @@ function cellFromEvent(event: PointerEvent): { row: number; col: number; inBound
 
 function setTool(tool: ActiveTool): void {
   activeTool = tool;
-  [toolDrawBtn, toolEraseBtn, toolPanBtn, toolStampBtn].forEach(btn => btn.classList.remove('active'));
+  const toolButtons = [toolDrawBtn, toolEraseBtn, toolGravityBtn, toolPanBtn, toolStampBtn].filter(Boolean) as HTMLElement[];
+  toolButtons.forEach(btn => btn.classList.remove('active'));
 
   if (tool === 'draw') toolDrawBtn.classList.add('active');
   if (tool === 'erase') toolEraseBtn.classList.add('active');
+  if (tool === 'gravity') toolGravityBtn?.classList.add('active');
   if (tool === 'pan') toolPanBtn.classList.add('active');
   if (tool === 'stamp') toolStampBtn.classList.add('active');
 
@@ -606,6 +626,8 @@ function setTool(tool: ActiveTool): void {
     board.style.cursor = 'grab';
   } else if (tool === 'stamp') {
     board.style.cursor = 'copy';
+  } else if (tool === 'gravity') {
+    board.style.cursor = 'radial-gradient';
   } else {
     board.style.cursor = 'crosshair';
   }
@@ -615,13 +637,14 @@ function setTool(tool: ActiveTool): void {
   }
 
   if (lastHoverCell && webglEngine) {
-    webglEngine.setHoverCell(lastHoverCell.col, lastHoverCell.row, brushRadius, activeTool);
+    webglEngine.setHoverCell(lastHoverCell.col, lastHoverCell.row, brushRadius, activeTool as any);
     renderGPU();
   }
 }
 
 toolDrawBtn.addEventListener('click', () => setTool('draw'));
 toolEraseBtn.addEventListener('click', () => setTool('erase'));
+toolGravityBtn?.addEventListener('click', () => setTool('gravity'));
 toolPanBtn.addEventListener('click', () => setTool('pan'));
 toolStampBtn.addEventListener('click', () => {
   setTool('stamp');
@@ -1342,6 +1365,11 @@ function stepGPU(): void {
     quickLive.textContent = String(extracted.liveCells);
     recordPopulation(extracted.liveCells);
   }
+
+  recordHistorySnapshot();
+  if (soundEngine.isEnabled()) {
+    soundEngine.onStep(state.liveCells, 2);
+  }
 }
 
 async function stepServer(): Promise<void> {
@@ -1352,6 +1380,10 @@ async function stepServer(): Promise<void> {
   frameTimeEl.textContent = (t1 - t0).toFixed(1);
   genCount++;
   applyState(next);
+  recordHistorySnapshot();
+  if (soundEngine.isEnabled()) {
+    soundEngine.onStep(state.liveCells, 2);
+  }
 }
 
 function gpuPlayLoop(): void {
@@ -1382,6 +1414,13 @@ function gpuPlayLoop(): void {
     }
   }
 
+  if (state.generation % 10 === 0) {
+    recordHistorySnapshot();
+    if (soundEngine.isEnabled()) {
+      soundEngine.onStep(state.liveCells, Math.max(1, state.liveCells % 15));
+    }
+  }
+
   if (state.generation % 30 === 0 && webglEngine) {
     const extracted = webglEngine.extractGrid();
     state.liveCells = extracted.liveCells;
@@ -1399,6 +1438,8 @@ function start(): void {
   running = true;
   playBtn.textContent = '⏸ Pause';
   playBtn.classList.add('running');
+  const transportDock = document.getElementById('transportDock');
+  transportDock?.classList.add('running');
   lastTickTime = performance.now();
 
   if (currentEngine === 'client-gpu') {
@@ -1424,6 +1465,8 @@ function stop(): void {
   running = false;
   playBtn.textContent = '▶ Play';
   playBtn.classList.remove('running');
+  const transportDock = document.getElementById('transportDock');
+  transportDock?.classList.remove('running');
 
   if (animFrameId !== null) {
     cancelAnimationFrame(animFrameId);
@@ -1442,6 +1485,207 @@ function stop(): void {
     quickLive.textContent = String(state.liveCells);
     recordPopulation(extracted.liveCells);
   }
+}
+
+// ── Time-Machine History Operations ──────────────────────────────────────────
+
+function recordHistorySnapshot(): void {
+  if (!webglEngine) return;
+  const extracted = webglEngine.extractGrid();
+  historyBuffer.push({
+    gen: state.generation,
+    liveCount: extracted.liveCells,
+    cells: extracted.cells.map(r => [...r]),
+  });
+  if (historyBuffer.length > MAX_HISTORY) {
+    historyBuffer.shift();
+  }
+  updateHistorySlider();
+}
+
+function updateHistorySlider(): void {
+  if (!historySlider || !historyLabel) return;
+  if (historyBuffer.length <= 1) {
+    historySlider.max = '0';
+    historySlider.value = '0';
+    historyLabel.textContent = `Gen ${state.generation}`;
+    return;
+  }
+  historySlider.max = String(historyBuffer.length - 1);
+  historySlider.value = String(historyBuffer.length - 1);
+  historyLabel.textContent = `Gen ${state.generation}`;
+}
+
+function stepBack(): void {
+  if (historyBuffer.length <= 1) {
+    hintEl.textContent = 'No previous generation in history buffer.';
+    return;
+  }
+  historyBuffer.pop(); // Discard current state
+  const prev = historyBuffer[historyBuffer.length - 1];
+  if (!prev) return;
+  state.generation = prev.gen;
+  state.liveCells = prev.liveCount;
+  state.cells = prev.cells.map(r => [...r]);
+  if (webglEngine) {
+    webglEngine.loadGrid(state.cells);
+    renderGPU();
+  }
+  generationEl.textContent = String(state.generation);
+  quickGen.textContent = String(state.generation);
+  liveEl.textContent = String(state.liveCells);
+  quickLive.textContent = String(state.liveCells);
+  updateHistorySlider();
+  hintEl.textContent = `⏪ Stepped back to Gen ${state.generation}`;
+}
+
+// ── Gravity Well Attractor ───────────────────────────────────────────────────
+
+function applyGravityWell(centerR: number, centerC: number, radius = 14): void {
+  if (!webglEngine) return;
+  const extracted = webglEngine.extractGrid();
+  const nextGrid = extracted.cells.map(r => [...r]);
+  let moved = 0;
+
+  for (let r = Math.max(0, centerR - radius); r <= Math.min(state.rows - 1, centerR + radius); r++) {
+    for (let c = Math.max(0, centerC - radius); c <= Math.min(state.cols - 1, centerC + radius); c++) {
+      if (extracted.cells[r][c]) {
+        const dr = centerR - r;
+        const dc = centerC - c;
+        const dist = Math.hypot(dr, dc);
+        if (dist > 1.2) {
+          const stepR = r + Math.round(dr / dist);
+          const stepC = c + Math.round(dc / dist);
+          if (stepR >= 0 && stepR < state.rows && stepC >= 0 && stepC < state.cols) {
+            nextGrid[r][c] = false;
+            nextGrid[stepR][stepC] = true;
+            moved++;
+          }
+        }
+      }
+    }
+  }
+
+  // Seed vortex core
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const cr = centerR + dr;
+      const cc = centerC + dc;
+      if (cr >= 0 && cr < state.rows && cc >= 0 && cc < state.cols) {
+        nextGrid[cr][cc] = (dr + dc) % 2 === 0;
+      }
+    }
+  }
+
+  webglEngine.loadGrid(nextGrid);
+  renderGPU();
+  if (soundEngine.isEnabled()) {
+    soundEngine.onStep(extracted.liveCells + moved, moved + 8);
+  }
+  hintEl.textContent = `🌀 Gravity well active at (${centerC}, ${centerR})! Gravitated ${moved} cells.`;
+}
+
+// ── Visual Themes & Sound Helpers ────────────────────────────────────────────
+
+function setTheme(theme: string): void {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('gol_theme', theme);
+  if (themeSelect) themeSelect.value = theme;
+
+  if (webglEngine) {
+    let mode = 0;
+    if (theme === 'synthwave') mode = 2;
+    else if (theme === 'bioluminescent') mode = 1;
+    else if (theme === 'solar') mode = 3;
+    else mode = 0;
+    webglEngine.setColorMode(mode);
+    renderGPU();
+  }
+}
+
+function updateSoundBtn(): void {
+  if (!soundToggleBtn) return;
+  if (soundEngine.isEnabled()) {
+    soundToggleBtn.textContent = '🔊 Sound';
+    soundToggleBtn.classList.add('active');
+  } else {
+    soundToggleBtn.textContent = '🔇 Sound';
+    soundToggleBtn.classList.remove('active');
+  }
+}
+
+// ── URL Board Sharing ────────────────────────────────────────────────────────
+
+async function shareBoardState(): Promise<void> {
+  let cells: boolean[][] = state.cells;
+  if (currentEngine === 'client-gpu' && webglEngine) {
+    cells = webglEngine.extractGrid().cells;
+  }
+  const liveCoords: [number, number][] = [];
+  for (let r = 0; r < cells.length; r++) {
+    for (let c = 0; c < (cells[r]?.length || 0); c++) {
+      if (cells[r][c]) liveCoords.push([r, c]);
+    }
+  }
+  const payload = {
+    r: state.rows,
+    c: state.cols,
+    g: state.generation,
+    pts: liveCoords,
+  };
+  const jsonStr = JSON.stringify(payload);
+  const encoded = btoa(encodeURIComponent(jsonStr));
+  const url = new URL(window.location.href);
+  url.hash = `share=${encoded}`;
+  window.history.replaceState(null, '', url.toString());
+
+  try {
+    await navigator.clipboard.writeText(url.toString());
+    hintEl.textContent = '🔗 Shareable board URL copied to clipboard!';
+  } catch {
+    hintEl.textContent = '🔗 Shareable URL encoded in browser address bar!';
+  }
+}
+
+function checkUrlSharedState(): boolean {
+  try {
+    const hash = window.location.hash;
+    if (hash.startsWith('#share=')) {
+      const b64 = hash.replace('#share=', '');
+      const jsonStr = decodeURIComponent(atob(b64));
+      const payload = JSON.parse(jsonStr);
+      if (payload && payload.pts && Array.isArray(payload.pts)) {
+        setTimeout(async () => {
+          const rows = payload.r || 42;
+          const cols = payload.c || 72;
+          state.rows = rows;
+          state.cols = cols;
+          if (webglEngine) {
+            webglEngine.resize(rows, cols, false);
+          }
+          const grid: boolean[][] = Array.from({ length: rows }, () =>
+            Array(cols).fill(false)
+          );
+          for (const [r, c] of payload.pts) {
+            if (r < grid.length && c < (grid[r]?.length || 0)) {
+              grid[r][c] = true;
+            }
+          }
+          if (webglEngine) {
+            webglEngine.loadGrid(grid);
+            renderGPU();
+          }
+          state.generation = payload.g || 0;
+          state.liveCells = payload.pts.length;
+          hintEl.textContent = `Restored shared board with ${payload.pts.length} live cells!`;
+        }, 300);
+        return true;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse shared state from URL hash', e);
+  }
+  return false;
 }
 
 // ── Performance Metrics ───────────────────────────────────────────────────────
@@ -1484,6 +1728,11 @@ board.addEventListener('pointerdown', async (event: PointerEvent) => {
     return;
   }
 
+  if (activeTool === 'gravity') {
+    applyGravityWell(row, col);
+    return;
+  }
+
   pushUndoSnapshot();
   painting = true;
   board.setPointerCapture(event.pointerId);
@@ -1495,6 +1744,9 @@ board.addEventListener('pointerdown', async (event: PointerEvent) => {
     paintAlive = !(state.cells && state.cells[row] && state.cells[row][col]);
   }
   await paintBrush(row, col, paintAlive);
+  if (soundEngine.isEnabled()) {
+    soundEngine.onStep(state.liveCells, 1);
+  }
 });
 
 board.addEventListener('pointermove', async (event: PointerEvent) => {
@@ -2404,10 +2656,14 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
     setTool('draw');
   } else if (e.key === 'e' || e.key === 'E') {
     setTool('erase');
+  } else if (e.key === 'g' || e.key === 'G') {
+    setTool('gravity');
   } else if (e.key === 'p' || e.key === 'P') {
     setTool('pan');
   } else if (e.key === 't' || e.key === 'T') {
     setTool('stamp');
+  } else if (e.key === 'm' || e.key === 'M') {
+    soundToggleBtn?.click();
   } else if (e.key === '1') {
     colorModeSelect.value = '0';
     colorModeSelect.dispatchEvent(new Event('change'));
@@ -2464,6 +2720,43 @@ async function boot(): Promise<void> {
   updateEngineLabels();
   updateZoomUI();
 
+  // Visual Theme Setup
+  const savedTheme = localStorage.getItem('gol_theme') || 'cyber';
+  setTheme(savedTheme);
+  themeSelect?.addEventListener('change', () => {
+    if (themeSelect) setTheme(themeSelect.value);
+  });
+
+  // Sound Engine Setup
+  updateSoundBtn();
+  soundToggleBtn?.addEventListener('click', () => {
+    soundEngine.toggle();
+    updateSoundBtn();
+  });
+
+  // URL Sharing Setup
+  shareBoardBtn?.addEventListener('click', shareBoardState);
+
+  // History Time-Machine Setup
+  stepBackBtn?.addEventListener('click', stepBack);
+  historySlider?.addEventListener('input', () => {
+    if (!historySlider) return;
+    const idx = Number(historySlider.value);
+    const snap = historyBuffer[idx];
+    if (!snap || !webglEngine) return;
+    if (running) stop();
+    state.generation = snap.gen;
+    state.liveCells = snap.liveCount;
+    state.cells = snap.cells.map(r => [...r]);
+    webglEngine.loadGrid(state.cells);
+    renderGPU();
+    generationEl.textContent = String(state.generation);
+    quickGen.textContent = String(state.generation);
+    liveEl.textContent = String(state.liveCells);
+    quickLive.textContent = String(state.liveCells);
+    if (historyLabel) historyLabel.textContent = `Gen ${snap.gen}`;
+  });
+
   const patterns = await api<PatternInfo[]>('/api/game/patterns');
   patternCatalog.clear();
   patterns.forEach((pattern) => {
@@ -2480,6 +2773,7 @@ async function boot(): Promise<void> {
   initGPU(initial.rows, initial.cols);
   adjustCanvasResolution(initial.rows, initial.cols);
   applyState(initial);
+  checkUrlSharedState();
 
   if (window.ResizeObserver && board.parentElement) {
     const resizeObs = new ResizeObserver(() => {

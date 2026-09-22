@@ -93,6 +93,23 @@ const HWSS_OFFSETS: [number, number][] = [
   [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5]
 ];
 
+const MWSS_OFFSETS: [number, number][] = [
+  [0, 3], [0, 4],
+  [1, 0], [1, 1], [1, 2], [1, 4], [1, 5],
+  [2, 0], [2, 1], [2, 2], [2, 3], [2, 4],
+  [3, 1], [3, 2], [3, 3]
+];
+
+const COPPERHEAD_OFFSETS: [number, number][] = [
+  [0, 1], [0, 2], [0, 5], [0, 6],
+  [1, 3], [1, 4], [2, 3], [2, 4],
+  [3, 0], [3, 2], [3, 5], [3, 7],
+  [4, 0], [4, 7], [6, 0], [6, 7],
+  [7, 1], [7, 2], [7, 5], [7, 6],
+  [8, 2], [8, 3], [8, 4], [8, 5],
+  [10, 3], [10, 4], [11, 3], [11, 4]
+];
+
 function stampOffsets(
   cells: Set<string>,
   offsets: [number, number][],
@@ -467,6 +484,147 @@ export const BOARD_SETUPS: BoardSetup[] = [
       // Border stabilization anchors
       stampOffsets(cells, EATER1_OFFSETS, rows - 24, 24, rows, cols);
       stampOffsets(cells, EATER1_OFFSETS, rows - 24, cols - 30, rows, cols, true, false);
+
+      return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
+    },
+  },
+  {
+    id: 'pinball-pachinko',
+    name: 'Cellular Pinball & Pachinko',
+    category: 'accelerators',
+    categoryLabel: 'Accelerators',
+    rows: 140,
+    cols: 140,
+    boundaryMode: 2,
+    boundaryLabel: 'Elastic Rebound Wall',
+    description: 'Top glider dispensers dropping continuous streams down through a staggered pegboard obstacle field of pulsars, blinkers, and eaters.',
+    dynamics: 'Gliders bounce, deflect, and cascade toward score bins at the bottom, creating a perpetual kinetic pachinko machine.',
+    generate: (rows, cols) => {
+      const cells = new Set<string>();
+
+      // Top glider dispensers
+      stampOffsets(cells, GOSPER_OFFSETS, 10, 16, rows, cols);
+      stampOffsets(cells, GOSPER_OFFSETS, 10, cols - 56, rows, cols, true, false);
+
+      // Staggered pegboard obstacles (Blinkers & Eaters)
+      for (let r = 40; r < rows - 30; r += 20) {
+        const offset = (r / 20) % 2 === 0 ? 0 : 15;
+        for (let c = 25 + offset; c < cols - 25; c += 30) {
+          stampOffsets(cells, EATER1_OFFSETS, r, c, rows, cols);
+          stampOffsets(cells, PULSAR_OFFSETS, r + 8, c + 10, rows, cols);
+        }
+      }
+
+      // Bottom score bins (vertical barrier partitions)
+      for (let c = 20; c < cols - 20; c += 25) {
+        for (let r = rows - 24; r < rows - 4; r++) {
+          cells.add(`${r},${c}`);
+          cells.add(`${r},${c + 1}`);
+        }
+      }
+
+      return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
+    },
+  },
+  {
+    id: 'spaceship-grandprix',
+    name: 'Spaceship Grand Prix (5-Lane Speedway)',
+    category: 'accelerators',
+    categoryLabel: 'Accelerators',
+    rows: 128,
+    cols: 140,
+    boundaryMode: 0,
+    boundaryLabel: 'Toroidal Topology',
+    description: 'Direct side-by-side velocity comparison across 5 distinct spaceship classes: Glider, Copperhead, LWSS, MWSS, and HWSS.',
+    dynamics: 'Watch different speed limits in action: c/2 orthogonal vs c/4 diagonal vs c/10 undulating caterpillar velocity.',
+    generate: (rows, cols) => {
+      const cells = new Set<string>();
+
+      // Track dividers
+      for (let r = 24; r < rows; r += 24) {
+        for (let c = 0; c < cols; c += 6) {
+          cells.add(`${r},${c}`);
+          cells.add(`${r},${c + 1}`);
+        }
+      }
+
+      // Lane 1: Glider (c/4 diagonal)
+      stampOffsets(cells, GLIDER_OFFSETS, 10, 12, rows, cols);
+
+      // Lane 2: Copperhead (c/10 undulating orthogonal)
+      stampOffsets(cells, COPPERHEAD_OFFSETS, 32, 12, rows, cols);
+
+      // Lane 3: Lightweight Spaceship LWSS (c/2 orthogonal)
+      stampOffsets(cells, LWSS_OFFSETS, 58, cols - 20, rows, cols);
+
+      // Lane 4: Middleweight Spaceship MWSS (c/2 orthogonal)
+      stampOffsets(cells, MWSS_OFFSETS, 82, cols - 24, rows, cols);
+
+      // Lane 5: Heavyweight Spaceship HWSS (c/2 orthogonal)
+      stampOffsets(cells, HWSS_OFFSETS, 106, cols - 28, rows, cols);
+
+      return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
+    },
+  },
+  {
+    id: 'the-breeder',
+    name: 'The Breeder (Quadratic Growth Engine)',
+    category: 'harmonics',
+    categoryLabel: 'Harmonics',
+    rows: 140,
+    cols: 140,
+    boundaryMode: 0,
+    boundaryLabel: 'Toroidal Topology',
+    description: 'Quadratic population growth mega-engine laying a cascading trail of glider guns and factory components across space.',
+    dynamics: 'Population expands at O(t^2) as each newly fabricated gun adds an independent stream of gliders to the universe.',
+    generate: (rows, cols) => {
+      const cells = new Set<string>();
+
+      // Central locomotive engine cluster
+      stampOffsets(cells, GOSPER_OFFSETS, 30, 20, rows, cols);
+      stampOffsets(cells, GOSPER_OFFSETS, 30, 70, rows, cols);
+      stampOffsets(cells, GOSPER_OFFSETS, 80, 20, rows, cols);
+      stampOffsets(cells, GOSPER_OFFSETS, 80, 70, rows, cols);
+
+      // Flanking factory escorts
+      stampOffsets(cells, HWSS_OFFSETS, 14, 50, rows, cols);
+      stampOffsets(cells, HWSS_OFFSETS, rows - 24, 50, rows, cols);
+
+      // Core harmonic seed
+      stampOffsets(cells, PULSAR_OFFSETS, 55, 45, rows, cols);
+      stampOffsets(cells, PULSAR_OFFSETS, 55, 80, rows, cols);
+
+      return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
+    },
+  },
+  {
+    id: 'bistable-flipflop-circuit',
+    name: '1-Bit Memory Latch & Signal Loop',
+    category: 'logic',
+    categoryLabel: 'Logic & Circuits',
+    rows: 120,
+    cols: 120,
+    boundaryMode: 0,
+    boundaryLabel: 'Toroidal Topology',
+    description: 'Bi-stable cellular memory register storing a toggleable state bit flanked by reflective delay lines.',
+    dynamics: 'Alternating incoming signal gliders flip the internal bit state, providing persistent cellular RAM storage.',
+    generate: (rows, cols) => {
+      const cells = new Set<string>();
+
+      const midR = Math.floor(rows / 2);
+      const midC = Math.floor(cols / 2);
+
+      // Memory cells at center
+      stampOffsets(cells, EATER1_OFFSETS, midR - 8, midC - 8, rows, cols);
+      stampOffsets(cells, EATER1_OFFSETS, midR + 8, midC + 8, rows, cols, true, true);
+
+      // Input glider tracks
+      stampOffsets(cells, GLIDER_OFFSETS, midR - 35, midC - 35, rows, cols);
+      stampOffsets(cells, GLIDER_OFFSETS, midR + 35, midC + 35, rows, cols, true, true);
+
+      // Readout monitors
+      stampOffsets(cells, PULSAR_OFFSETS, 16, cols - 30, rows, cols);
+      stampOffsets(cells, PULSAR_OFFSETS, rows - 30, 16, rows, cols);
 
       return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
     },

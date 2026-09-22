@@ -19,10 +19,20 @@ class PatternsTest {
         assertNotNull(Patterns.get("andgate"), "AND gate should be loaded");
         assertNotNull(Patterns.get("orgate"), "OR gate should be loaded");
         assertNotNull(Patterns.get("acorn"), "Acorn methuselah should be loaded");
+        assertNotNull(Patterns.get("copperhead"), "Copperhead should be loaded");
+        assertNotNull(Patterns.get("mwss"), "MWSS should be loaded");
+        assertNotNull(Patterns.get("puffer"), "Puffer Train should be loaded");
+        assertNotNull(Patterns.get("corderengine"), "Corderengine should be loaded");
+        assertNotNull(Patterns.get("flipflop"), "Flip-flop should be loaded");
+        assertNotNull(Patterns.get("reflector"), "Reflector should be loaded");
+        assertNotNull(Patterns.get("splitter"), "Splitter should be loaded");
 
+        assertEquals(28, Patterns.get("copperhead").cells().size(), "Copperhead should have 28 cells");
         assertEquals("logic", Patterns.get("notgate").category());
+        assertEquals("logic", Patterns.get("flipflop").category());
         assertEquals("guns", Patterns.get("gosper").category());
         assertEquals("spaceships", Patterns.get("glider").category());
+        assertEquals("spaceships", Patterns.get("puffer").category());
         assertFalse(Patterns.get("notgate").cells().isEmpty());
     }
 

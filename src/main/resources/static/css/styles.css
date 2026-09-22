@@ -15,6 +15,157 @@
     --border-radius: 6px;
 }
 
+/* ── Color Themes ───────────────────────────────────────────────────────────── */
+
+[data-theme="synthwave"] {
+    --bg: #0b091a;
+    --paper: #14102c;
+    --paper-card: #1c173d;
+    --ink: #fdf2f8;
+    --muted: #a78bfa;
+    --line: #372f61;
+    --line-light: #52478f;
+    --phosphor: #f43f5e;
+    --phosphor-glow: rgba(244, 63, 94, 0.45);
+    --phosphor-dim: #9f1239;
+    --amber: #ec4899;
+    --cyan: #38bdf8;
+}
+
+[data-theme="bioluminescent"] {
+    --bg: #030712;
+    --paper: #0b1528;
+    --paper-card: #11203b;
+    --ink: #f0fdfa;
+    --muted: #5eead4;
+    --line: #1e3a5f;
+    --line-light: #2d5a92;
+    --phosphor: #2dd4bf;
+    --phosphor-glow: rgba(45, 212, 191, 0.45);
+    --phosphor-dim: #0f766e;
+    --amber: #38bdf8;
+    --cyan: #22d3ee;
+}
+
+[data-theme="solar"] {
+    --bg: #0e0705;
+    --paper: #1a0e0a;
+    --paper-card: #281711;
+    --ink: #fffbeb;
+    --muted: #fcd34d;
+    --line: #452417;
+    --line-light: #663623;
+    --phosphor: #f59e0b;
+    --phosphor-glow: rgba(245, 158, 11, 0.45);
+    --phosphor-dim: #b45309;
+    --amber: #fbbf24;
+    --cyan: #f97316;
+}
+
+[data-theme="matrix"] {
+    --bg: #000000;
+    --paper: #07130a;
+    --paper-card: #0c2011;
+    --ink: #dcfce7;
+    --muted: #86efac;
+    --line: #164020;
+    --line-light: #236532;
+    --phosphor: #22c55e;
+    --phosphor-glow: rgba(34, 197, 94, 0.45);
+    --phosphor-dim: #15803d;
+    --amber: #4ade80;
+    --cyan: #10b981;
+}
+
+/* ── Dynamic UI Animations ─────────────────────────────────────────────────── */
+
+@keyframes beacon-pulse {
+    0% {
+        box-shadow: 0 0 0 0 var(--phosphor-glow);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(0, 0, 0, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+    }
+}
+
+.dot.live {
+    animation: beacon-pulse 2s infinite ease-out;
+}
+
+@keyframes dock-running-glow {
+    0%, 100% {
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.65), 0 0 16px var(--phosphor-glow);
+    }
+    50% {
+        box-shadow: 0 10px 36px rgba(0, 0, 0, 0.75), 0 0 32px var(--phosphor-glow);
+    }
+}
+
+.transport-dock.running {
+    animation: dock-running-glow 2.5s infinite ease-in-out;
+    border-color: var(--phosphor);
+}
+
+@keyframes drawerSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.board-setup-preview:not([hidden]) {
+    animation: drawerSlideDown 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tab-pane.active {
+    animation: tabFadeIn 0.18s ease-out;
+}
+
+.pattern-row-card, .board-row-card {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.pattern-row-card:hover, .board-row-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 12px var(--phosphor-glow);
+    border-color: var(--phosphor);
+}
+
+.theme-select {
+    background: #1e1b15;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    border-radius: 4px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.theme-select:hover, .theme-select:focus {
+    border-color: var(--phosphor-dim);
+}
+
 * {
     box-sizing: border-box;
 }
@@ -408,6 +559,41 @@ canvas#board {
     border-color: var(--line);
     color: var(--amber);
     font-weight: 600;
+}
+
+.history-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 4px;
+}
+
+.history-label {
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    color: var(--muted);
+    min-width: 44px;
+}
+
+.history-slider {
+    width: 90px;
+    height: 4px;
+    accent-color: var(--phosphor);
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+#soundToggleBtn.active {
+    border-color: var(--phosphor-dim);
+    color: var(--phosphor);
+    background: rgba(217, 227, 106, 0.12);
+}
+
+.dock-tool-btn[data-tool="gravity"].active {
+    border-color: #8b5cf6;
+    color: #c4b5fd;
+    background: rgba(139, 92, 246, 0.18);
 }
 
 /* ── Right Inspector Panel ───────────────────────────────────────────────────── */

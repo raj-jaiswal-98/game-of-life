@@ -1,0 +1,33 @@
+{
+  "id": "puffer",
+  "name": "Puffer Train 1",
+  "category": "spaceships",
+  "description": "Bill Gosper's 1971 classic c/2 orthogonal locomotive leaving an infinite smoke trail of oscillators and ash",
+  "cells": [
+    {"row": 0, "col": 1},
+    {"row": 0, "col": 4},
+    {"row": 1, "col": 0},
+    {"row": 2, "col": 0},
+    {"row": 2, "col": 4},
+    {"row": 3, "col": 0},
+    {"row": 3, "col": 1},
+    {"row": 3, "col": 2},
+    {"row": 3, "col": 3},
+    {"row": 5, "col": 3},
+    {"row": 5, "col": 4},
+    {"row": 5, "col": 5},
+    {"row": 6, "col": 4},
+    {"row": 7, "col": 3},
+    {"row": 7, "col": 4},
+    {"row": 8, "col": 3},
+    {"row": 10, "col": 1},
+    {"row": 10, "col": 4},
+    {"row": 11, "col": 0},
+    {"row": 12, "col": 0},
+    {"row": 12, "col": 4},
+    {"row": 13, "col": 0},
+    {"row": 13, "col": 1},
+    {"row": 13, "col": 2},
+    {"row": 13, "col": 3}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "flipflop",
+  "name": "1-Bit Memory Flip-Flop",
+  "category": "logic",
+  "description": "Bi-stable cellular memory cell storing 1 bit of information toggled by incoming signals",
+  "cells": [
+    {"row": 0, "col": 1},
+    {"row": 0, "col": 2},
+    {"row": 1, "col": 0},
+    {"row": 1, "col": 3},
+    {"row": 2, "col": 0},
+    {"row": 2, "col": 3},
+    {"row": 3, "col": 1},
+    {"row": 3, "col": 2},
+    {"row": 6, "col": 7},
+    {"row": 6, "col": 8},
+    {"row": 7, "col": 6},
+    {"row": 7, "col": 9},
+    {"row": 8, "col": 6},
+    {"row": 8, "col": 9},
+    {"row": 9, "col": 7},
+    {"row": 9, "col": 8}
+  ]
+}
