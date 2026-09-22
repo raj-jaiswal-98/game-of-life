@@ -1,0 +1,36 @@
+{
+  "id": "bheptomino",
+  "name": "B-heptomino",
+  "category": "methuselahs",
+  "description": "Methuselah: 7-cell engine of chaos and glider synthesis",
+  "cells": [
+    {
+      "row": 0,
+      "col": 0
+    },
+    {
+      "row": 0,
+      "col": 2
+    },
+    {
+      "row": 0,
+      "col": 3
+    },
+    {
+      "row": 1,
+      "col": 0
+    },
+    {
+      "row": 1,
+      "col": 1
+    },
+    {
+      "row": 1,
+      "col": 2
+    },
+    {
+      "row": 2,
+      "col": 1
+    }
+  ]
+}

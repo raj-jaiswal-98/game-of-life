@@ -1,0 +1,36 @@
+{
+  "id": "acorn",
+  "name": "Acorn",
+  "category": "methuselahs",
+  "description": "Methuselah: 7 cells that evolve for 5,206 generations, emitting 13 gliders",
+  "cells": [
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 1,
+      "col": 3
+    },
+    {
+      "row": 2,
+      "col": 0
+    },
+    {
+      "row": 2,
+      "col": 1
+    },
+    {
+      "row": 2,
+      "col": 4
+    },
+    {
+      "row": 2,
+      "col": 5
+    },
+    {
+      "row": 2,
+      "col": 6
+    }
+  ]
+}

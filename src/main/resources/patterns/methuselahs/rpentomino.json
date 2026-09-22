@@ -1,0 +1,28 @@
+{
+  "id": "rpentomino",
+  "name": "R-pentomino",
+  "category": "methuselahs",
+  "description": "Methuselah: 5 cells discovered by Conway, active for 1,103 generations",
+  "cells": [
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 0,
+      "col": 2
+    },
+    {
+      "row": 1,
+      "col": 0
+    },
+    {
+      "row": 1,
+      "col": 1
+    },
+    {
+      "row": 2,
+      "col": 1
+    }
+  ]
+}

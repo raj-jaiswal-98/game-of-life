@@ -1,0 +1,28 @@
+{
+  "id": "glider",
+  "name": "Glider",
+  "category": "spaceships",
+  "description": "Small spaceship that travels diagonally across the grid",
+  "cells": [
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 1,
+      "col": 2
+    },
+    {
+      "row": 2,
+      "col": 0
+    },
+    {
+      "row": 2,
+      "col": 1
+    },
+    {
+      "row": 2,
+      "col": 2
+    }
+  ]
+}

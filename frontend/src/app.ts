@@ -23,6 +23,7 @@
 
 import { api } from './api';
 import { WebGLEngine } from './gpu/webgl-engine';
+import { BOARD_SETUPS, BoardSetup, createBoardPreviewCanvas } from './boards';
 import type {
   GameState,
   PatternInfo,
@@ -106,6 +107,22 @@ const flipVBtn        = document.getElementById('flipVBtn')        as HTMLButton
 const centerPatternBtn = document.getElementById('centerPatternBtn') as HTMLButtonElement;
 const cancelPattern   = document.getElementById('cancelPattern')   as HTMLButtonElement;
 
+// Tab 3: Boards & Novel Setups
+const boardSearch             = document.getElementById('boardSearch')             as HTMLInputElement;
+const boardList               = document.getElementById('boardList')               as HTMLElement;
+const boardSetupPreview       = document.getElementById('boardSetupPreview')       as HTMLElement;
+const previewCategoryBadge    = document.getElementById('previewCategoryBadge')    as HTMLElement;
+const previewBoardTitle       = document.getElementById('previewBoardTitle')       as HTMLElement;
+const closeBoardPreviewBtn    = document.getElementById('closeBoardPreviewBtn')    as HTMLButtonElement;
+const boardPreviewLargeCanvas = document.getElementById('boardPreviewLargeCanvas') as HTMLCanvasElement;
+const previewBoardRes         = document.getElementById('previewBoardRes')         as HTMLElement;
+const previewBoardBoundary    = document.getElementById('previewBoardBoundary')    as HTMLElement;
+const previewBoardPop         = document.getElementById('previewBoardPop')         as HTMLElement;
+const previewBoardDesc        = document.getElementById('previewBoardDesc')        as HTMLElement;
+const previewBoardDynamics    = document.getElementById('previewBoardDynamics')    as HTMLElement;
+const launchBoardBtn          = document.getElementById('launchBoardBtn')          as HTMLButtonElement;
+const loadBoardPausedBtn      = document.getElementById('loadBoardPausedBtn')      as HTMLButtonElement;
+
 // Import Pattern Modal
 const importPatternModal = document.getElementById('importPatternModal') as HTMLDialogElement;
 const closeImportModal   = document.getElementById('closeImportModal')   as HTMLButtonElement;
@@ -118,7 +135,7 @@ const importMetaInfo     = document.getElementById('importMetaInfo')     as HTML
 const importError        = document.getElementById('importError')        as HTMLElement;
 const submitImportBtn    = document.getElementById('submitImportBtn')    as HTMLButtonElement;
 
-// Tab 3: Telemetry
+// Tab 4: Telemetry
 const sparklineCanvas = document.getElementById('sparklineCanvas') as HTMLCanvasElement;
 const popTrendBadge   = document.getElementById('popTrendBadge')   as HTMLElement;
 const popMinEl        = document.getElementById('popMin')          as HTMLElement;
@@ -215,20 +232,126 @@ const DEFAULT_PATTERNS: Record<string, [number, number][]> = {
     [7, 11], [7, 15],
     [8, 12], [8, 13]
   ],
+  hwss: [
+    [0, 3], [0, 4],
+    [1, 1], [1, 6],
+    [2, 0],
+    [3, 0], [3, 6],
+    [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5]
+  ],
+  copperhead: [
+    [0, 3], [0, 4],
+    [1, 3], [1, 4],
+    [3, 1], [3, 2], [3, 5], [3, 6],
+    [4, 0], [4, 7],
+    [5, 0], [5, 2], [5, 5], [5, 7],
+    [6, 0], [6, 7],
+    [7, 2], [7, 5],
+    [8, 2], [8, 3], [8, 4], [8, 5],
+    [10, 3], [10, 4],
+    [11, 3], [11, 4]
+  ],
+  simkin: [
+    [0, 0], [0, 1], [1, 0], [1, 1],
+    [4, 4], [4, 5], [5, 4], [5, 5],
+    [10, 27], [10, 28], [11, 26], [11, 28], [12, 26],
+    [13, 20], [13, 21], [13, 22],
+    [14, 20], [14, 23],
+    [15, 20], [15, 24],
+    [16, 21], [16, 25],
+    [17, 31], [17, 32], [18, 31], [18, 32],
+    [20, 4], [20, 5], [21, 4], [21, 5]
+  ],
+  queenbee: [
+    [1, 0], [1, 1], [2, 0], [2, 1],
+    [2, 6],
+    [1, 7], [3, 7],
+    [0, 8], [4, 8],
+    [0, 9], [1, 9], [2, 9], [3, 9], [4, 9],
+    [1, 20], [1, 21], [2, 20], [2, 21]
+  ],
+  eater1: [
+    [0, 0], [0, 1],
+    [1, 0], [1, 2],
+    [2, 2],
+    [3, 2], [3, 3]
+  ],
+  acorn: [
+    [0, 1],
+    [1, 3],
+    [2, 0], [2, 1], [2, 4], [2, 5], [2, 6]
+  ],
+  rpentomino: [
+    [0, 1], [0, 2],
+    [1, 0], [1, 1],
+    [2, 1]
+  ],
+  bheptomino: [
+    [0, 0], [0, 2], [0, 3],
+    [1, 0], [1, 1], [1, 2],
+    [2, 1]
+  ],
+  notgate: [
+    // Gosper gun
+    [0, 24], [1, 22], [1, 24], [2, 12], [2, 13], [2, 20], [2, 21], [2, 34], [2, 35],
+    [3, 11], [3, 15], [3, 20], [3, 21], [3, 34], [3, 35], [4, 0], [4, 1], [4, 10], [4, 16],
+    [4, 20], [4, 21], [5, 0], [5, 1], [5, 10], [5, 14], [5, 16], [5, 17], [5, 22], [5, 24],
+    [6, 10], [6, 16], [6, 24], [7, 11], [7, 15], [8, 12], [8, 13],
+    // Eater 1
+    [22, 40], [22, 41], [23, 40], [23, 42], [24, 42], [25, 42], [25, 43],
+    // Input Glider
+    [15, 48], [16, 49], [17, 47], [17, 48], [17, 49]
+  ],
+  andgate: [
+    // Input Glider A
+    [0, 9], [1, 10], [2, 8], [2, 9], [2, 10],
+    // Input Glider B
+    [8, 1], [9, 2], [10, 0], [10, 1], [10, 2],
+    // Catalyst Block
+    [12, 12], [12, 13], [13, 12], [13, 13],
+    // Eater sinks
+    [18, 6], [18, 7], [19, 6], [19, 8], [20, 8], [21, 8], [21, 9],
+    [6, 18], [6, 19], [7, 18], [7, 20], [8, 20], [9, 20], [9, 21]
+  ],
+  orgate: [
+    // Glider A
+    [0, 7], [1, 8], [2, 6], [2, 7], [2, 8],
+    // Glider B
+    [4, 1], [5, 2], [6, 0], [6, 1], [6, 2],
+    // Stabilizer Beehive
+    [14, 15], [14, 16], [15, 14], [15, 17], [16, 15], [16, 16],
+    // Eater sink
+    [18, 22], [18, 23], [19, 22], [19, 24], [20, 24], [21, 24], [21, 25]
+  ]
 };
 
 const PATTERN_CATEGORIES: Record<string, string> = {
   glider: 'spaceships',
   lwss: 'spaceships',
+  hwss: 'spaceships',
+  copperhead: 'spaceships',
   gosper: 'guns',
+  simkin: 'guns',
   blinker: 'oscillators',
   toad: 'oscillators',
   beacon: 'oscillators',
   pulsar: 'oscillators',
   pentadecathlon: 'oscillators',
+  queenbee: 'oscillators',
   block: 'still',
   beehive: 'still',
+  eater1: 'still',
+  acorn: 'methuselahs',
+  rpentomino: 'methuselahs',
+  bheptomino: 'methuselahs',
+  notgate: 'logic',
+  andgate: 'logic',
+  orgate: 'logic',
 };
+
+// Boards Studio state
+let activeBoardCategory = 'all';
+let activeBoardSetup: BoardSetup | null = null;
 
 // ── WebGL Initialization ──────────────────────────────────────────────────────
 
@@ -655,21 +778,24 @@ async function stamp(row: number, col: number): Promise<void> {
 
 function createPatternPreviewCanvas(rawCells: [number, number][]): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.width = 60;
-  canvas.height = 48;
+  canvas.width = 68;
+  canvas.height = 52;
   const ctx = canvas.getContext('2d');
   if (!ctx || rawCells.length === 0) return canvas;
+
+  ctx.fillStyle = '#0d0c09';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const maxR = Math.max(...rawCells.map(c => c[0])) + 1;
   const maxC = Math.max(...rawCells.map(c => c[1])) + 1;
 
-  const cellSize = Math.min(Math.floor(40 / Math.max(maxR, maxC)), 7);
-  const startX = Math.floor((60 - maxC * cellSize) / 2);
-  const startY = Math.floor((48 - maxR * cellSize) / 2);
+  const cellSize = Math.min(Math.floor(40 / Math.max(maxR, maxC)), 6);
+  const startX = Math.floor((canvas.width - maxC * cellSize) / 2);
+  const startY = Math.floor((canvas.height - maxR * cellSize) / 2);
 
   ctx.fillStyle = '#d9e36a';
   for (const [r, c] of rawCells) {
-    ctx.fillRect(startX + c * cellSize, startY + r * cellSize, cellSize - 1, cellSize - 1);
+    ctx.fillRect(startX + c * cellSize, startY + r * cellSize, Math.max(1, cellSize - 1), Math.max(1, cellSize - 1));
   }
   return canvas;
 }
@@ -688,28 +814,61 @@ function renderPatternGrid(): void {
     }
 
     const card = document.createElement('div');
-    card.className = `pattern-card ${selectedPattern === pattern.id ? 'active' : ''}`;
+    const isSelected = selectedPattern === pattern.id;
+    card.className = `pattern-row-card ${isSelected ? 'active' : ''}`;
     card.dataset.id = pattern.id;
 
     const rawCells = (pattern.cells && pattern.cells.length > 0)
       ? pattern.cells.map(c => [c.row, c.col] as [number, number])
       : (DEFAULT_PATTERNS[pattern.id.toLowerCase()] || []);
 
+    const maxR = rawCells.length > 0 ? Math.max(...rawCells.map(c => c[0])) + 1 : 0;
+    const maxC = rawCells.length > 0 ? Math.max(...rawCells.map(c => c[1])) + 1 : 0;
+
     const preview = document.createElement('div');
-    preview.className = 'pattern-card-preview';
+    preview.className = 'pattern-row-preview';
     preview.appendChild(createPatternPreviewCanvas(rawCells));
 
-    const title = document.createElement('div');
-    title.className = 'pattern-card-title';
+    const info = document.createElement('div');
+    info.className = 'pattern-row-info';
+
+    const header = document.createElement('div');
+    header.className = 'pattern-row-header';
+
+    const title = document.createElement('span');
+    title.className = 'pattern-row-title';
     title.textContent = pattern.name;
 
-    const catBadge = document.createElement('div');
-    catBadge.className = 'pattern-card-cat';
+    const catBadge = document.createElement('span');
+    catBadge.className = 'pattern-row-cat';
     catBadge.textContent = cat;
 
+    header.appendChild(title);
+    header.appendChild(catBadge);
+
+    const meta = document.createElement('div');
+    meta.className = 'pattern-row-meta';
+    meta.innerHTML = `<span>📐 ${maxC} × ${maxR}</span> · <span>⚡ ${rawCells.length} cells</span>`;
+
+    const desc = document.createElement('div');
+    desc.className = 'pattern-row-desc';
+    desc.textContent = pattern.description;
+
+    info.appendChild(header);
+    info.appendChild(meta);
+    info.appendChild(desc);
+
+    const action = document.createElement('div');
+    action.className = 'pattern-row-action';
+    const stampBtn = document.createElement('button');
+    stampBtn.type = 'button';
+    stampBtn.className = 'btn-stamp-row';
+    stampBtn.textContent = isSelected ? 'Active' : 'Stamp';
+    action.appendChild(stampBtn);
+
     card.appendChild(preview);
-    card.appendChild(title);
-    card.appendChild(catBadge);
+    card.appendChild(info);
+    card.appendChild(action);
 
     card.addEventListener('click', () => {
       setPattern(selectedPattern === pattern.id ? null : pattern.id);
@@ -795,10 +954,10 @@ function updateGhostOverlay(): void {
   renderGPU();
 }
 
-// Category filter tabs
-document.querySelectorAll<HTMLButtonElement>('.cat-pill').forEach(pill => {
+// Pattern Category filter pills
+document.querySelectorAll<HTMLButtonElement>('#tab-patterns .cat-pill').forEach(pill => {
   pill.addEventListener('click', () => {
-    document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#tab-patterns .cat-pill').forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     activeCategory = pill.dataset.cat || 'all';
     renderPatternGrid();
@@ -806,6 +965,259 @@ document.querySelectorAll<HTMLButtonElement>('.cat-pill').forEach(pill => {
 });
 
 patternSearch?.addEventListener('input', () => renderPatternGrid());
+
+// ── Boards Studio & Setup Previews ───────────────────────────────────────────
+
+function showBoardSetupPreview(setup: BoardSetup): void {
+  activeBoardSetup = setup;
+  if (!boardSetupPreview) return;
+  boardSetupPreview.hidden = false;
+
+  if (previewCategoryBadge) previewCategoryBadge.textContent = setup.categoryLabel;
+  if (previewBoardTitle) previewBoardTitle.textContent = setup.name;
+  if (previewBoardRes) previewBoardRes.textContent = `${setup.rows} × ${setup.cols}`;
+  if (previewBoardBoundary) previewBoardBoundary.textContent = setup.boundaryLabel;
+  if (previewBoardDesc) previewBoardDesc.textContent = setup.description;
+  if (previewBoardDynamics) previewBoardDynamics.textContent = setup.dynamics;
+
+  const cells = setup.generate(setup.rows, setup.cols);
+  if (previewBoardPop) previewBoardPop.textContent = `${cells.length.toLocaleString()} cells`;
+
+  if (boardPreviewLargeCanvas) {
+    const ctx = boardPreviewLargeCanvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#080705';
+      ctx.fillRect(0, 0, boardPreviewLargeCanvas.width, boardPreviewLargeCanvas.height);
+      const scaleX = boardPreviewLargeCanvas.width / setup.cols;
+      const scaleY = boardPreviewLargeCanvas.height / setup.rows;
+      ctx.fillStyle = '#d9e36a';
+      for (const [r, c] of cells) {
+        const x = Math.floor(c * scaleX);
+        const y = Math.floor(r * scaleY);
+        ctx.fillRect(x, y, Math.max(1, Math.ceil(scaleX)), Math.max(1, Math.ceil(scaleY)));
+      }
+    }
+  }
+
+  boardSetupPreview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  renderBoardList();
+}
+
+async function applyBoardSetup(setup: BoardSetup, autoPlay = true): Promise<void> {
+  stop();
+
+  const rows = setup.rows;
+  const cols = setup.cols;
+
+  // 1. Boundary mode
+  if (boundaryModeSelect) boundaryModeSelect.value = String(setup.boundaryMode);
+  state.boundaryMode = setup.boundaryMode;
+  if (webglEngine) {
+    webglEngine.setWallMode(setup.boundaryMode);
+  }
+  try {
+    await api<GameState>('/api/game/boundary', {
+      method: 'POST',
+      body: JSON.stringify({ mode: setup.boundaryMode } as WallModeRequest),
+    });
+  } catch (e) {
+    console.warn('Boundary mode update failed:', e);
+  }
+
+  // 2. Generate cell coordinates
+  const cellCoords = setup.generate(rows, cols);
+  const grid: boolean[][] = [];
+  let liveCount = 0;
+  for (let r = 0; r < rows; r++) {
+    const row = new Array(cols).fill(false);
+    grid.push(row);
+  }
+  for (const [r, c] of cellCoords) {
+    if (r >= 0 && r < rows && c >= 0 && c < cols) {
+      grid[r][c] = true;
+      liveCount++;
+    }
+  }
+
+  // 3. Update Grid Size and State
+  state.rows = rows;
+  state.cols = cols;
+  state.cells = grid;
+  state.liveCells = liveCount;
+  state.generation = 0;
+
+  const sizeVal = `${rows}x${cols}`;
+  if (![...gridSizeSelect.options].some(o => o.value === sizeVal)) {
+    const customOpt = document.createElement('option');
+    customOpt.value = sizeVal;
+    customOpt.textContent = `Setup Grid (${rows} × ${cols})`;
+    gridSizeSelect.insertBefore(customOpt, gridSizeSelect.firstChild);
+  }
+  gridSizeSelect.value = sizeVal;
+
+  sizeEl.textContent = `${rows} \u00d7 ${cols}`;
+  quickSize.textContent = `${rows} × ${cols}`;
+  generationEl.textContent = '0';
+  quickGen.textContent = '0';
+  liveEl.textContent = String(liveCount);
+  quickLive.textContent = String(liveCount);
+
+  adjustCanvasResolution(rows, cols);
+
+  // 4. Update WebGL & Reset Pan/Zoom
+  if (webglEngine) {
+    webglEngine.resize(rows, cols, false);
+    webglEngine.loadGrid(grid);
+    zoomToFit();
+    renderGPU();
+  }
+
+  // 5. Update Server
+  try {
+    await api<GameState>('/api/game/resize', {
+      method: 'POST',
+      body: JSON.stringify({ rows, cols, preserveCells: false } as GridSizeRequest),
+    });
+    await api<GameState>('/api/game/grid', {
+      method: 'POST',
+      body: JSON.stringify({
+        rows,
+        cols,
+        generation: 0,
+        cells: grid,
+      } as GridSyncRequest),
+    });
+  } catch (e) {
+    console.warn('Server grid setup sync:', e);
+  }
+
+  popHistory.length = 0;
+  recordPopulation(liveCount);
+
+  hintEl.textContent = `Board loaded: \u201c${setup.name}\u201d (${rows}\u00d7${cols}, ${setup.boundaryLabel}). ${autoPlay ? 'Running...' : 'Paused.'}`;
+
+  if (autoPlay) {
+    start();
+  }
+}
+
+function renderBoardList(): void {
+  if (!boardList) return;
+  boardList.innerHTML = '';
+  const search = (boardSearch?.value || '').toLowerCase().trim();
+
+  BOARD_SETUPS.forEach((setup) => {
+    if (activeBoardCategory !== 'all' && setup.category !== activeBoardCategory) {
+      return;
+    }
+    if (search && !setup.name.toLowerCase().includes(search) && !setup.description.toLowerCase().includes(search) && !setup.dynamics.toLowerCase().includes(search)) {
+      return;
+    }
+
+    const card = document.createElement('div');
+    const isSelected = activeBoardSetup?.id === setup.id;
+    card.className = `board-row-card ${isSelected ? 'active' : ''}`;
+
+    const preview = document.createElement('div');
+    preview.className = 'board-row-preview';
+    preview.appendChild(createBoardPreviewCanvas(setup, 80, 60));
+
+    const info = document.createElement('div');
+    info.className = 'board-row-info';
+
+    const header = document.createElement('div');
+    header.className = 'board-row-header';
+
+    const title = document.createElement('span');
+    title.className = 'board-row-title';
+    title.textContent = setup.name;
+
+    const badge = document.createElement('span');
+    badge.className = 'board-row-badge';
+    badge.textContent = setup.categoryLabel;
+
+    header.appendChild(title);
+    header.appendChild(badge);
+
+    const meta = document.createElement('div');
+    meta.className = 'board-row-meta';
+    meta.innerHTML = `<span>📐 ${setup.rows} × ${setup.cols}</span> · <span>🌐 ${setup.boundaryLabel}</span>`;
+
+    const desc = document.createElement('div');
+    desc.className = 'board-row-desc';
+    desc.textContent = setup.description;
+
+    info.appendChild(header);
+    info.appendChild(meta);
+    info.appendChild(desc);
+
+    const action = document.createElement('div');
+    action.className = 'board-row-action';
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'btn-open-board';
+    openBtn.textContent = isSelected ? 'Active' : 'Preview';
+    action.appendChild(openBtn);
+
+    card.appendChild(preview);
+    card.appendChild(info);
+    card.appendChild(action);
+
+    card.addEventListener('click', () => {
+      showBoardSetupPreview(setup);
+    });
+
+    boardList.appendChild(card);
+  });
+}
+
+// Board Category filter pills
+document.querySelectorAll<HTMLButtonElement>('#boardCategoryPills .cat-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('#boardCategoryPills .cat-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeBoardCategory = pill.dataset.boardCat || 'all';
+    renderBoardList();
+  });
+});
+
+boardSearch?.addEventListener('input', () => renderBoardList());
+
+closeBoardPreviewBtn?.addEventListener('click', () => {
+  if (boardSetupPreview) boardSetupPreview.hidden = true;
+});
+
+launchBoardBtn?.addEventListener('click', async () => {
+  if (activeBoardSetup) {
+    await applyBoardSetup(activeBoardSetup, true);
+  }
+});
+
+loadBoardPausedBtn?.addEventListener('click', async () => {
+  if (activeBoardSetup) {
+    await applyBoardSetup(activeBoardSetup, false);
+  }
+});
+
+// Telemetry Stress Presets click handlers
+document.querySelectorAll<HTMLButtonElement>('.stress-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const presetId = btn.dataset.preset;
+    let targetBoardId: string | null = null;
+    if (presetId === 'glider-megacity') targetBoardId = 'glider-megacity';
+    else if (presetId === 'gun-matrix') targetBoardId = 'particle-collider';
+    else if (presetId === 'supernova-soup') targetBoardId = 'supernova-core';
+    else if (presetId === 'pulsar-galaxy') targetBoardId = 'pulsar-galaxy';
+
+    if (targetBoardId) {
+      const found = BOARD_SETUPS.find(b => b.id === targetBoardId);
+      if (found) {
+        await applyBoardSetup(found, true);
+        showBoardSetupPreview(found);
+      }
+    }
+  });
+});
 
 // ── Tabbed Sidebar Controller ─────────────────────────────────────────────────
 
@@ -1274,6 +1686,7 @@ boundaryModeSelect?.addEventListener('change', async () => {
 
 interface ParsedPattern {
   name?: string;
+  category?: string;
   cells: [number, number][];
 }
 
@@ -1283,7 +1696,36 @@ function parsePatternInput(input: string): ParsedPattern {
     throw new Error('Pattern code is empty.');
   }
 
-  // 1. JSON coordinate array e.g. [[0, 1], [1, 2]]
+  // 1. JSON object e.g. {"id": "my_pattern", "name": "...", "cells": [...]}
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      let rawList = parsed.cells;
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const cells: [number, number][] = [];
+        for (const item of rawList) {
+          if (Array.isArray(item) && item.length >= 2) {
+            cells.push([Number(item[0]), Number(item[1])]);
+          } else if (item && typeof item === 'object' && 'row' in item && 'col' in item) {
+            cells.push([Number(item.row), Number(item.col)]);
+          }
+        }
+        if (cells.length > 0) {
+          const minR = Math.min(...cells.map(c => c[0]));
+          const minC = Math.min(...cells.map(c => c[1]));
+          return {
+            name: parsed.name,
+            category: parsed.category,
+            cells: cells.map(([r, c]) => [r - minR, c - minC]),
+          };
+        }
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 2. JSON coordinate array e.g. [[0, 1], [1, 2]]
   if (trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed);
@@ -1307,7 +1749,7 @@ function parsePatternInput(input: string): ParsedPattern {
     }
   }
 
-  // 2. Plaintext format (.cells)
+  // 3. Plaintext format (.cells)
   const lines = trimmed.split(/\r?\n/);
   const isRLE = trimmed.includes('$') || trimmed.includes('!') || /x\s*=\s*\d+/.test(trimmed);
   const isPlaintext = !isRLE && lines.some(l => !l.startsWith('!') && /^[.O*oX ]+$/.test(l.trim()));
@@ -1339,21 +1781,22 @@ function parsePatternInput(input: string): ParsedPattern {
     }
   }
 
-  // 3. RLE format
+  // 4. RLE format
   let extractedName: string | undefined;
   let rleData = '';
   for (const line of lines) {
     const l = line.trim();
     if (l.startsWith('#')) {
-      if (l.startsWith('#N') && !extractedName) {
+      if (!extractedName && (l.startsWith('#N') || l.startsWith('#O')) && l.length > 3) {
         extractedName = l.slice(2).trim();
       }
       continue;
     }
-    if (l.startsWith('x') && l.includes('=')) {
-      continue; // Skip header line
+    if (/^[xy]\s*=/i.test(l)) {
+      continue;
     }
     rleData += l;
+    if (l.includes('!')) break;
   }
 
   const cells: [number, number][] = [];
@@ -1363,13 +1806,13 @@ function parsePatternInput(input: string): ParsedPattern {
 
   for (let i = 0; i < rleData.length; i++) {
     const ch = rleData[i];
-    if (ch >= '0' && ch <= '9') {
+    if (/\d/.test(ch)) {
       countStr += ch;
     } else if (ch === 'b') {
       const count = countStr ? parseInt(countStr, 10) : 1;
       curC += count;
       countStr = '';
-    } else if (ch === 'o' || ch === 'A') {
+    } else if (ch === 'o') {
       const count = countStr ? parseInt(countStr, 10) : 1;
       for (let k = 0; k < count; k++) {
         cells.push([curR, curC + k]);
@@ -1421,6 +1864,9 @@ function updateImportPreview(): void {
     if (parsed.name && !importNameInput.value.trim()) {
       importNameInput.value = parsed.name;
     }
+    if (parsed.category && importCategorySelect) {
+      importCategorySelect.value = parsed.category;
+    }
 
     const maxR = Math.max(...parsed.cells.map(c => c[0])) + 1;
     const maxC = Math.max(...parsed.cells.map(c => c[1])) + 1;
@@ -1457,7 +1903,7 @@ importPatternModal?.addEventListener('click', (e) => {
 
 importDataInput?.addEventListener('input', updateImportPreview);
 
-submitImportBtn?.addEventListener('click', () => {
+submitImportBtn?.addEventListener('click', async () => {
   if (!pendingImportCells || pendingImportCells.length === 0) return;
 
   const rawName = importNameInput.value.trim() || 'Custom Pattern';
@@ -1467,12 +1913,24 @@ submitImportBtn?.addEventListener('click', () => {
   DEFAULT_PATTERNS[id] = pendingImportCells;
   PATTERN_CATEGORIES[id] = category;
 
-  patternCatalog.set(id, {
+  const patternData: PatternInfo = {
     id,
     name: rawName,
+    category,
     description: `User-imported pattern (${category})`,
     cells: pendingImportCells.map(([row, col]) => ({ row, col })),
-  });
+  };
+
+  patternCatalog.set(id, patternData);
+
+  try {
+    await api<PatternInfo>('/api/game/patterns/import', {
+      method: 'POST',
+      body: JSON.stringify(patternData),
+    });
+  } catch (e) {
+    console.warn('Server pattern import notification:', e);
+  }
 
   importPatternModal.close();
   importNameInput.value = '';
@@ -2010,8 +2468,12 @@ async function boot(): Promise<void> {
   patternCatalog.clear();
   patterns.forEach((pattern) => {
     patternCatalog.set(pattern.id, pattern);
+    if (pattern.category) {
+      PATTERN_CATEGORIES[pattern.id.toLowerCase()] = pattern.category;
+    }
   });
   renderPatternGrid();
+  renderBoardList();
 
   const initial = await api<GameState>('/api/game');
   updateDynamicGridRecommendations(true);

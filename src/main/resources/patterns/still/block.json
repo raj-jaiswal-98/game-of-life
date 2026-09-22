@@ -1,0 +1,24 @@
+{
+  "id": "block",
+  "name": "Block",
+  "category": "still",
+  "description": "Still life 2x2 square",
+  "cells": [
+    {
+      "row": 0,
+      "col": 0
+    },
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 1,
+      "col": 0
+    },
+    {
+      "row": 1,
+      "col": 1
+    }
+  ]
+}

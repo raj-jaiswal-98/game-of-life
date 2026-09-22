@@ -102,6 +102,7 @@
             <nav class="inspector-tabs" role="tablist">
                 <button class="tab-btn active" type="button" data-tab="config">🎛️ Simulation</button>
                 <button class="tab-btn" type="button" data-tab="patterns">🧩 Patterns</button>
+                <button class="tab-btn" type="button" data-tab="boards">🗺️ Boards</button>
                 <button class="tab-btn" type="button" data-tab="telemetry">📊 Telemetry</button>
             </nav>
 
@@ -203,7 +204,7 @@
             <div id="tab-patterns" class="tab-pane">
                 <div class="pattern-studio-header">
                     <div class="pattern-search-row">
-                        <input id="patternSearch" type="text" class="pattern-search" placeholder="Search patterns...">
+                        <input id="patternSearch" type="text" class="pattern-search" placeholder="Search patterns by name or behavior...">
                         <button id="openImportModalBtn" class="btn-import-pattern" type="button" title="Import custom pattern (RLE, Plaintext, Coordinates)">+ Import</button>
                     </div>
                     <div class="category-pills">
@@ -211,7 +212,9 @@
                         <button class="cat-pill" type="button" data-cat="spaceships">Spaceships</button>
                         <button class="cat-pill" type="button" data-cat="guns">Guns</button>
                         <button class="cat-pill" type="button" data-cat="oscillators">Oscillators</button>
+                        <button class="cat-pill" type="button" data-cat="methuselahs">Methuselahs</button>
                         <button class="cat-pill" type="button" data-cat="still">Still Lifes</button>
+                        <button class="cat-pill" type="button" data-cat="logic">Logic Gates</button>
                         <button class="cat-pill" type="button" data-cat="custom">Custom</button>
                     </div>
                 </div>
@@ -230,8 +233,63 @@
                     </div>
                 </div>
 
-                <!-- Pattern Thumbnail Grid -->
-                <div id="patternGrid" class="pattern-grid"></div>
+                <!-- 1 Pattern per Row Catalog -->
+                <div id="patternGrid" class="pattern-list"></div>
+            </div>
+
+            <!-- Tab 3: Boards & Novel Setups -->
+            <div id="tab-boards" class="tab-pane">
+                <div class="board-studio-header">
+                    <div class="board-search-row">
+                        <input id="boardSearch" type="text" class="board-search" placeholder="Search board setups & biomes...">
+                    </div>
+                    <div class="category-pills" id="boardCategoryPills">
+                        <button class="cat-pill active" type="button" data-board-cat="all">All</button>
+                        <button class="cat-pill" type="button" data-board-cat="accelerators">⚡ Accelerators</button>
+                        <button class="cat-pill" type="button" data-board-cat="harmonics">🌌 Harmonics</button>
+                        <button class="cat-pill" type="button" data-board-cat="soups">✨ Cosmic Soups</button>
+                        <button class="cat-pill" type="button" data-board-cat="biomes">🏰 Biomes & Mazes</button>
+                    </div>
+                </div>
+
+                <!-- Setup Preview Drawer / Card (Shown when a board is selected) -->
+                <div id="boardSetupPreview" class="board-setup-preview" hidden>
+                    <div class="setup-preview-header">
+                        <div>
+                            <span class="preview-badge" id="previewCategoryBadge">Accelerators</span>
+                            <h3 id="previewBoardTitle">Glider Megacity</h3>
+                        </div>
+                        <button id="closeBoardPreviewBtn" class="close-preview-btn" type="button" title="Close Preview">✕</button>
+                    </div>
+                    <div class="setup-preview-body">
+                        <div class="setup-preview-canvas-wrap">
+                            <canvas id="boardPreviewLargeCanvas" width="140" height="96"></canvas>
+                        </div>
+                        <div class="setup-specs">
+                            <div class="spec-row">
+                                <span class="spec-label">Resolution</span>
+                                <strong id="previewBoardRes">128 × 128</strong>
+                            </div>
+                            <div class="spec-row">
+                                <span class="spec-label">Boundary</span>
+                                <strong id="previewBoardBoundary">Toroidal Wrap</strong>
+                            </div>
+                            <div class="spec-row">
+                                <span class="spec-label">Live Seed</span>
+                                <strong id="previewBoardPop">~1,200 cells</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="previewBoardDesc" class="setup-description">Vast matrix of synchronized diagonal glider fleets sweeping through space in perpetual motion.</p>
+                    <p id="previewBoardDynamics" class="setup-dynamics">Over 1,000 synchronized gliders travel diagonally across toroidal boundaries, creating mesmerizing waves and orbital harmonics.</p>
+                    <div class="setup-actions">
+                        <button id="launchBoardBtn" class="btn-launch-board primary" type="button">🚀 Launch & Run</button>
+                        <button id="loadBoardPausedBtn" class="btn-launch-board secondary" type="button">📥 Load Paused</button>
+                    </div>
+                </div>
+
+                <!-- 1 Board per Row Listing -->
+                <div id="boardList" class="board-list"></div>
             </div>
 
             <!-- Tab 3: Telemetry, Presets & Benchmarks -->

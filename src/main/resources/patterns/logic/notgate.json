@@ -1,0 +1,200 @@
+{
+  "id": "notgate",
+  "name": "NOT Gate (Glider Inverter)",
+  "category": "logic",
+  "description": "Glider stream inverter: input glider annihilates clock glider",
+  "cells": [
+    {
+      "row": 0,
+      "col": 24
+    },
+    {
+      "row": 1,
+      "col": 22
+    },
+    {
+      "row": 1,
+      "col": 24
+    },
+    {
+      "row": 2,
+      "col": 12
+    },
+    {
+      "row": 2,
+      "col": 13
+    },
+    {
+      "row": 2,
+      "col": 20
+    },
+    {
+      "row": 2,
+      "col": 21
+    },
+    {
+      "row": 2,
+      "col": 34
+    },
+    {
+      "row": 2,
+      "col": 35
+    },
+    {
+      "row": 3,
+      "col": 11
+    },
+    {
+      "row": 3,
+      "col": 15
+    },
+    {
+      "row": 3,
+      "col": 20
+    },
+    {
+      "row": 3,
+      "col": 21
+    },
+    {
+      "row": 3,
+      "col": 34
+    },
+    {
+      "row": 3,
+      "col": 35
+    },
+    {
+      "row": 4,
+      "col": 0
+    },
+    {
+      "row": 4,
+      "col": 1
+    },
+    {
+      "row": 4,
+      "col": 10
+    },
+    {
+      "row": 4,
+      "col": 16
+    },
+    {
+      "row": 4,
+      "col": 20
+    },
+    {
+      "row": 4,
+      "col": 21
+    },
+    {
+      "row": 5,
+      "col": 0
+    },
+    {
+      "row": 5,
+      "col": 1
+    },
+    {
+      "row": 5,
+      "col": 10
+    },
+    {
+      "row": 5,
+      "col": 14
+    },
+    {
+      "row": 5,
+      "col": 16
+    },
+    {
+      "row": 5,
+      "col": 17
+    },
+    {
+      "row": 5,
+      "col": 22
+    },
+    {
+      "row": 5,
+      "col": 24
+    },
+    {
+      "row": 6,
+      "col": 10
+    },
+    {
+      "row": 6,
+      "col": 16
+    },
+    {
+      "row": 6,
+      "col": 24
+    },
+    {
+      "row": 7,
+      "col": 11
+    },
+    {
+      "row": 7,
+      "col": 15
+    },
+    {
+      "row": 8,
+      "col": 12
+    },
+    {
+      "row": 8,
+      "col": 13
+    },
+    {
+      "row": 22,
+      "col": 40
+    },
+    {
+      "row": 22,
+      "col": 41
+    },
+    {
+      "row": 23,
+      "col": 40
+    },
+    {
+      "row": 23,
+      "col": 42
+    },
+    {
+      "row": 24,
+      "col": 42
+    },
+    {
+      "row": 25,
+      "col": 42
+    },
+    {
+      "row": 25,
+      "col": 43
+    },
+    {
+      "row": 15,
+      "col": 48
+    },
+    {
+      "row": 16,
+      "col": 49
+    },
+    {
+      "row": 17,
+      "col": 47
+    },
+    {
+      "row": 17,
+      "col": 48
+    },
+    {
+      "row": 17,
+      "col": 49
+    }
+  ]
+}

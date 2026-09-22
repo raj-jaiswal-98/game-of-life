@@ -7,10 +7,15 @@ import java.util.List;
 public record PatternInfo(
         String id,
         String name,
+        String category,
         String description,
         List<Patterns.Offset> cells
 ) {
+    public PatternInfo(String id, String name, String description, List<Patterns.Offset> cells) {
+        this(id, name, "other", description, cells);
+    }
+
     public PatternInfo(String id, String name, String description) {
-        this(id, name, description, List.of());
+        this(id, name, "other", description, List.of());
     }
 }

@@ -41,8 +41,25 @@ public class GameController {
     @GetMapping("/patterns")
     public List<PatternInfo> patterns() {
         return Patterns.all().stream()
-                .map(pattern -> new PatternInfo(pattern.id(), pattern.name(), pattern.description(), pattern.cells()))
+                .map(pattern -> new PatternInfo(pattern.id(), pattern.name(), pattern.category(), pattern.description(), pattern.cells()))
                 .toList();
+    }
+
+    @PostMapping("/patterns/import")
+    public PatternInfo importPattern(@RequestBody PatternInfo request) {
+        if (request == null || request.id() == null || request.id().isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Pattern id is required");
+        }
+        Patterns.Pattern pattern = new Patterns.Pattern(
+                request.id(),
+                request.name() != null ? request.name() : request.id(),
+                request.category() != null ? request.category() : "custom",
+                request.description() != null ? request.description() : "User-imported pattern",
+                request.cells() != null ? request.cells() : List.of()
+        );
+        Patterns.register(pattern);
+        return new PatternInfo(pattern.id(), pattern.name(), pattern.category(), pattern.description(), pattern.cells());
     }
 
     @GetMapping("/hardware")

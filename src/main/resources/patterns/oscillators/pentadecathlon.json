@@ -1,0 +1,56 @@
+{
+  "id": "pentadecathlon",
+  "name": "Pentadecathlon",
+  "category": "oscillators",
+  "description": "Period-15 oscillator and natural 90-degree glider reflector",
+  "cells": [
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 1,
+      "col": 1
+    },
+    {
+      "row": 2,
+      "col": 0
+    },
+    {
+      "row": 2,
+      "col": 2
+    },
+    {
+      "row": 3,
+      "col": 1
+    },
+    {
+      "row": 4,
+      "col": 1
+    },
+    {
+      "row": 5,
+      "col": 1
+    },
+    {
+      "row": 6,
+      "col": 1
+    },
+    {
+      "row": 7,
+      "col": 0
+    },
+    {
+      "row": 7,
+      "col": 2
+    },
+    {
+      "row": 8,
+      "col": 1
+    },
+    {
+      "row": 9,
+      "col": 1
+    }
+  ]
+}

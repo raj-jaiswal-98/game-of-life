@@ -1,0 +1,44 @@
+{
+  "id": "lwss",
+  "name": "Lightweight spaceship",
+  "category": "spaceships",
+  "description": "Orthogonal c/2 spaceship with compact hull",
+  "cells": [
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 0,
+      "col": 4
+    },
+    {
+      "row": 1,
+      "col": 0
+    },
+    {
+      "row": 2,
+      "col": 0
+    },
+    {
+      "row": 2,
+      "col": 4
+    },
+    {
+      "row": 3,
+      "col": 0
+    },
+    {
+      "row": 3,
+      "col": 1
+    },
+    {
+      "row": 3,
+      "col": 2
+    },
+    {
+      "row": 3,
+      "col": 3
+    }
+  ]
+}

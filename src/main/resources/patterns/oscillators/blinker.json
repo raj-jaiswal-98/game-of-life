@@ -1,0 +1,20 @@
+{
+  "id": "blinker",
+  "name": "Blinker",
+  "category": "oscillators",
+  "description": "Period-2 fundamental oscillator",
+  "cells": [
+    {
+      "row": 0,
+      "col": 0
+    },
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 0,
+      "col": 2
+    }
+  ]
+}

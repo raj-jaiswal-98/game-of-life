@@ -35,6 +35,7 @@ export interface PatternOffset {
 export interface PatternInfo {
   id: string;
   name: string;
+  category?: string;
   description: string;
   cells?: PatternOffset[];
 }

@@ -1,0 +1,36 @@
+{
+  "id": "eater1",
+  "name": "Glider eater 1",
+  "category": "still",
+  "description": "Classic fishhook still life that absorbs incoming gliders",
+  "cells": [
+    {
+      "row": 0,
+      "col": 0
+    },
+    {
+      "row": 0,
+      "col": 1
+    },
+    {
+      "row": 1,
+      "col": 0
+    },
+    {
+      "row": 1,
+      "col": 2
+    },
+    {
+      "row": 2,
+      "col": 2
+    },
+    {
+      "row": 3,
+      "col": 2
+    },
+    {
+      "row": 3,
+      "col": 3
+    }
+  ]
+}
