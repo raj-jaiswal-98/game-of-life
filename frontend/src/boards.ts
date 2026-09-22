@@ -11,7 +11,7 @@
 export interface BoardSetup {
   id: string;
   name: string;
-  category: 'accelerators' | 'harmonics' | 'soups' | 'biomes';
+  category: 'accelerators' | 'harmonics' | 'soups' | 'biomes' | 'logic';
   categoryLabel: string;
   rows: number;
   cols: number;
@@ -28,6 +28,7 @@ export const BOARD_CATEGORIES = [
   { id: 'harmonics', label: '🌌 Harmonics' },
   { id: 'soups', label: '✨ Cosmic Soups' },
   { id: 'biomes', label: '🏰 Biomes & Mazes' },
+  { id: 'logic', label: '⚙️ Logic & Circuits' },
 ] as const;
 
 // ── Pattern Helper Templates ─────────────────────────────────────────────────
@@ -401,6 +402,71 @@ export const BOARD_SETUPS: BoardSetup[] = [
       // Add oscillators in the alcoves
       stampOffsets(cells, PULSAR_OFFSETS, 4, 52, rows, cols);
       stampOffsets(cells, PULSAR_OFFSETS, rows - 22, 52, rows, cols);
+
+      return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
+    },
+  },
+  {
+    id: 'logic-inverter',
+    name: 'Signal Inverter (NOT Gate Stream)',
+    category: 'logic',
+    categoryLabel: 'Logic & Circuits',
+    rows: 128,
+    cols: 128,
+    boundaryMode: 0,
+    boundaryLabel: 'Toroidal Topology',
+    description: 'Continuous Gosper Gun clock stream feeding directly into an Eater 1 sink, with a phased signal interceptor track.',
+    dynamics: 'Clock gliders sail across the circuit until absorbed by the fishhook eater. Input gliders collide to cleanly invert the signal.',
+    generate: (rows, cols) => {
+      const cells = new Set<string>();
+
+      // Carrier Clock Gun (firing diagonally downwards-right)
+      stampOffsets(cells, GOSPER_OFFSETS, 20, 16, rows, cols);
+
+      // Signal Sink: Shield of Eater 1s absorbing clock gliders
+      stampOffsets(cells, EATER1_OFFSETS, 80, 76, rows, cols);
+      stampOffsets(cells, EATER1_OFFSETS, 84, 82, rows, cols);
+
+      // Input Glider Track firing from south-west to intercept
+      stampOffsets(cells, GLIDER_OFFSETS, 82, 30, rows, cols, true, false);
+      stampOffsets(cells, GLIDER_OFFSETS, 98, 46, rows, cols, true, false);
+
+      // Indicator beacon at top corner
+      stampOffsets(cells, PULSAR_OFFSETS, 16, cols - 32, rows, cols);
+
+      return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
+    },
+  },
+  {
+    id: 'logic-collider',
+    name: 'Glider Collider & Logic Synthesis Lab',
+    category: 'logic',
+    categoryLabel: 'Logic & Circuits',
+    rows: 128,
+    cols: 128,
+    boundaryMode: 0,
+    boundaryLabel: 'Toroidal Topology',
+    description: 'Orthogonal dual-gun collider testing glider annihilation, reflection, and synthesis dynamics.',
+    dynamics: 'Two synchronized streams collide at the center. Strategic eaters capture output pulses and eliminate ash.',
+    generate: (rows, cols) => {
+      const cells = new Set<string>();
+
+      // Gun 1: Top-Left shooting south-east
+      stampOffsets(cells, GOSPER_OFFSETS, 16, 16, rows, cols);
+
+      // Gun 2: Top-Right shooting south-west (flipped horizontally)
+      stampOffsets(cells, GOSPER_OFFSETS, 16, cols - 56, rows, cols, true, false);
+
+      // Center Eaters and reflectors
+      const centerR = Math.floor(rows / 2);
+      const centerC = Math.floor(cols / 2);
+
+      stampOffsets(cells, EATER1_OFFSETS, centerR + 24, centerC - 10, rows, cols);
+      stampOffsets(cells, EATER1_OFFSETS, centerR + 24, centerC + 10, rows, cols, true, false);
+
+      // Border stabilization anchors
+      stampOffsets(cells, EATER1_OFFSETS, rows - 24, 24, rows, cols);
+      stampOffsets(cells, EATER1_OFFSETS, rows - 24, cols - 30, rows, cols, true, false);
 
       return Array.from(cells).map(k => k.split(',').map(Number) as [number, number]);
     },

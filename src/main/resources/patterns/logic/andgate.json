@@ -2,119 +2,17 @@
   "id": "andgate",
   "name": "AND Gate (Glider Coincidence)",
   "category": "logic",
-  "description": "Glider coincidence gate: emits output only when both inputs arrive",
+  "description": "Glider collision synthesis: two input gliders collide cleanly to generate a new output glider with zero debris",
   "cells": [
-    {
-      "row": 0,
-      "col": 9
-    },
-    {
-      "row": 1,
-      "col": 10
-    },
-    {
-      "row": 2,
-      "col": 8
-    },
-    {
-      "row": 2,
-      "col": 9
-    },
-    {
-      "row": 2,
-      "col": 10
-    },
-    {
-      "row": 8,
-      "col": 1
-    },
-    {
-      "row": 9,
-      "col": 2
-    },
-    {
-      "row": 10,
-      "col": 0
-    },
-    {
-      "row": 10,
-      "col": 1
-    },
-    {
-      "row": 10,
-      "col": 2
-    },
-    {
-      "row": 12,
-      "col": 12
-    },
-    {
-      "row": 12,
-      "col": 13
-    },
-    {
-      "row": 13,
-      "col": 12
-    },
-    {
-      "row": 13,
-      "col": 13
-    },
-    {
-      "row": 18,
-      "col": 6
-    },
-    {
-      "row": 18,
-      "col": 7
-    },
-    {
-      "row": 19,
-      "col": 6
-    },
-    {
-      "row": 19,
-      "col": 8
-    },
-    {
-      "row": 20,
-      "col": 8
-    },
-    {
-      "row": 21,
-      "col": 8
-    },
-    {
-      "row": 21,
-      "col": 9
-    },
-    {
-      "row": 6,
-      "col": 18
-    },
-    {
-      "row": 6,
-      "col": 19
-    },
-    {
-      "row": 7,
-      "col": 18
-    },
-    {
-      "row": 7,
-      "col": 20
-    },
-    {
-      "row": 8,
-      "col": 20
-    },
-    {
-      "row": 9,
-      "col": 20
-    },
-    {
-      "row": 9,
-      "col": 21
-    }
+    {"row": 0, "col": 3},
+    {"row": 1, "col": 1},
+    {"row": 1, "col": 3},
+    {"row": 1, "col": 5},
+    {"row": 2, "col": 2},
+    {"row": 2, "col": 3},
+    {"row": 2, "col": 4},
+    {"row": 3, "col": 0},
+    {"row": 3, "col": 1},
+    {"row": 3, "col": 2}
   ]
 }
