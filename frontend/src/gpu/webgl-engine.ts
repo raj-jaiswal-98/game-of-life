@@ -112,6 +112,9 @@ uniform int u_wallEnabled;
 uniform int u_ghostCount;
 uniform vec2 u_ghostOrigin;
 uniform vec2 u_ghostOffsets[64];
+uniform vec2 u_hoverCell;    // (col, row), or (-1.0, -1.0) when inactive
+uniform float u_hoverRadius; // brush radius (1.0, 3.0, 5.0)
+uniform int u_hoverMode;     // 0: none, 1: draw/inspect, 2: erase, 3: stamp
 uniform vec2 u_pan;
 uniform float u_zoom;
 out vec4 fragColor;
@@ -223,15 +226,55 @@ void main() {
         }
     }
 
-    // Ghost Pattern Preview Overlay
+    // Ghost Pattern Preview Overlay (clipped to grid bounds - no wrapping duplicate)
     if (u_ghostCount > 0) {
         for (int i = 0; i < 64; i++) {
             if (i >= u_ghostCount) break;
             vec2 offset = u_ghostOffsets[i];
-            vec2 targetCell = mod(mod(u_ghostOrigin + offset, u_resolution) + u_resolution, u_resolution);
-            if (abs(cellCoord.x - floor(targetCell.x)) < 0.5 && abs(cellCoord.y - floor(targetCell.y)) < 0.5) {
-                vec3 ghostGlow = vec3(0.15, 0.95, 1.00); // Electric Cyan ghost glow
-                color = mix(color, ghostGlow, 0.75);
+            vec2 targetCell = u_ghostOrigin + offset;
+            if (targetCell.x >= 0.0 && targetCell.x < u_resolution.x &&
+                targetCell.y >= 0.0 && targetCell.y < u_resolution.y) {
+                if (abs(cellCoord.x - floor(targetCell.x)) < 0.5 && abs(cellCoord.y - floor(targetCell.y)) < 0.5) {
+                    vec3 ghostGlow = vec3(0.15, 0.95, 1.00); // Electric Cyan ghost glow
+                    color = mix(color, ghostGlow, 0.75);
+                }
+            }
+        }
+    }
+
+    // Interactive Hover & Cursor Highlight
+    if (u_hoverCell.x >= 0.0 && u_hoverCell.y >= 0.0) {
+        bool isExactHover = (abs(cellCoord.x - u_hoverCell.x) < 0.5 && abs(cellCoord.y - u_hoverCell.y) < 0.5);
+        float halfR = floor(u_hoverRadius / 2.0);
+        bool inBrush = (abs(cellCoord.x - u_hoverCell.x) <= halfR + 0.1 && abs(cellCoord.y - u_hoverCell.y) <= halfR + 0.1);
+
+        if (inBrush) {
+            vec2 cellFrac = fract(gridUV * u_resolution);
+            vec3 highlightColor = vec3(0.15, 0.95, 1.00); // Cyan for draw/inspect
+            if (u_hoverMode == 2) {
+                highlightColor = vec3(1.00, 0.28, 0.38); // Coral/Red for erase
+            } else if (u_hoverMode == 3) {
+                highlightColor = vec3(0.98, 0.85, 0.30); // Golden Amber anchor for stamp
+            }
+
+            if (isExactHover) {
+                // Crisp border reticle around current hovered cell
+                float b = 0.09;
+                bool isBorder = (cellFrac.x < b || cellFrac.x > 1.0 - b || cellFrac.y < b || cellFrac.y > 1.0 - b);
+                if (isBorder) {
+                    color = mix(color, highlightColor, 0.85);
+                } else {
+                    color = mix(color, highlightColor, 0.28);
+                }
+            } else {
+                // Outer brush footprint
+                float b = 0.06;
+                bool isBorder = (cellFrac.x < b || cellFrac.x > 1.0 - b || cellFrac.y < b || cellFrac.y > 1.0 - b);
+                if (isBorder) {
+                    color = mix(color, highlightColor, 0.40);
+                } else {
+                    color = mix(color, highlightColor, 0.12);
+                }
             }
         }
     }
@@ -274,6 +317,11 @@ export class WebGLEngine {
     private ghostOrigin: [number, number] = [0, 0];
     private ghostOffsets: Float32Array = new Float32Array(128); // max 64 pairs of (col, row)
 
+    // Interactive hover highlight
+    private hoverCell: [number, number] = [-1, -1];
+    private hoverRadius: number = 1;
+    private hoverMode: number = 0; // 0: none, 1: draw/inspect, 2: erase, 3: stamp
+
     private vao: WebGLVertexArrayObject;
 
     private simResLoc!: WebGLUniformLocation;
@@ -289,6 +337,9 @@ export class WebGLEngine {
     private dispGhostCountLoc!: WebGLUniformLocation;
     private dispGhostOriginLoc!: WebGLUniformLocation;
     private dispGhostOffsetsLoc!: WebGLUniformLocation;
+    private dispHoverCellLoc!: WebGLUniformLocation;
+    private dispHoverRadiusLoc!: WebGLUniformLocation;
+    private dispHoverModeLoc!: WebGLUniformLocation;
     private dispPanLoc!: WebGLUniformLocation;
     private dispZoomLoc!: WebGLUniformLocation;
 
@@ -401,6 +452,18 @@ export class WebGLEngine {
 
     public clearGhostPattern(): void {
         this.ghostCount = 0;
+    }
+
+    public setHoverCell(col: number, row: number, radius: number = 1, tool: string = 'draw'): void {
+        this.hoverCell = [col, row];
+        this.hoverRadius = radius;
+        this.hoverMode = tool === 'erase' ? 2 : tool === 'stamp' ? 3 : 1;
+    }
+
+    public clearHoverCell(): void {
+        this.hoverCell = [-1, -1];
+        this.hoverRadius = 1;
+        this.hoverMode = 0;
     }
 
     public step(): void {
@@ -565,6 +628,9 @@ export class WebGLEngine {
         gl.uniform1i(this.dispGhostCountLoc, this.ghostCount);
         gl.uniform2f(this.dispGhostOriginLoc, this.ghostOrigin[0], this.ghostOrigin[1]);
         gl.uniform2fv(this.dispGhostOffsetsLoc, this.ghostOffsets);
+        gl.uniform2f(this.dispHoverCellLoc, this.hoverCell[0], this.hoverCell[1]);
+        gl.uniform1f(this.dispHoverRadiusLoc, this.hoverRadius);
+        gl.uniform1i(this.dispHoverModeLoc, this.hoverMode);
         gl.uniform2f(this.dispPanLoc, this.panX, this.panY);
         gl.uniform1f(this.dispZoomLoc, this.zoom);
 
@@ -830,6 +896,9 @@ export class WebGLEngine {
         this.dispGhostCountLoc = gl.getUniformLocation(this.displayProgram, 'u_ghostCount')!;
         this.dispGhostOriginLoc = gl.getUniformLocation(this.displayProgram, 'u_ghostOrigin')!;
         this.dispGhostOffsetsLoc = gl.getUniformLocation(this.displayProgram, 'u_ghostOffsets')!;
+        this.dispHoverCellLoc = gl.getUniformLocation(this.displayProgram, 'u_hoverCell')!;
+        this.dispHoverRadiusLoc = gl.getUniformLocation(this.displayProgram, 'u_hoverRadius')!;
+        this.dispHoverModeLoc = gl.getUniformLocation(this.displayProgram, 'u_hoverMode')!;
         this.dispPanLoc = gl.getUniformLocation(this.displayProgram, 'u_pan')!;
         this.dispZoomLoc = gl.getUniformLocation(this.displayProgram, 'u_zoom')!;
     }

@@ -59,4 +59,19 @@ class GameServiceTest {
         assertTrue(response.cells()[5][5]);
         assertTrue(response.cells()[6][6]);
     }
+
+    @Test
+    void stampPatternClipsAtBoundariesWithoutWrapping() {
+        // Stamp a glider (offsets: (0,1), (1,2), (2,0), (2,1), (2,2)) near right border col=70
+        // Grid is 42x72. Offsets with dc=2 (col 72) are out of bounds and must NOT wrap to col 0
+        GameStateResponse response = service.stampPattern("glider", 5, 70);
+
+        assertTrue(response.cells()[5][71], "Cell (5, 71) should be alive");
+        assertTrue(response.cells()[7][70], "Cell (7, 70) should be alive");
+        assertTrue(response.cells()[7][71], "Cell (7, 71) should be alive");
+
+        // The cells that would have wrapped to col 0 must be false
+        assertFalse(response.cells()[6][0], "Col 72 must NOT wrap to col 0");
+        assertFalse(response.cells()[7][0], "Col 72 must NOT wrap to col 0");
+    }
 }

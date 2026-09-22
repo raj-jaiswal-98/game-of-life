@@ -490,6 +490,11 @@ function setTool(tool: ActiveTool): void {
   if (tool !== 'stamp' && selectedPattern) {
     setPattern(null);
   }
+
+  if (lastHoverCell && webglEngine) {
+    webglEngine.setHoverCell(lastHoverCell.col, lastHoverCell.row, brushRadius, activeTool);
+    renderGPU();
+  }
 }
 
 toolDrawBtn.addEventListener('click', () => setTool('draw'));
@@ -511,6 +516,11 @@ function setBrushSize(size: 1 | 3 | 5): void {
   if (size === 1) brush1Btn.classList.add('active');
   if (size === 3) brush3Btn.classList.add('active');
   if (size === 5) brush5Btn.classList.add('active');
+
+  if (lastHoverCell && webglEngine) {
+    webglEngine.setHoverCell(lastHoverCell.col, lastHoverCell.row, brushRadius, activeTool);
+    renderGPU();
+  }
 }
 
 brush1Btn.addEventListener('click', () => setBrushSize(1));
@@ -604,8 +614,9 @@ async function stamp(row: number, col: number): Promise<void> {
 
   if (currentEngine === 'client-gpu' && webglEngine) {
     for (const [dr, dc] of rawCells) {
-      const r = ((row + dr) % state.rows + state.rows) % state.rows;
-      const c = ((col + dc) % state.cols + state.cols) % state.cols;
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) continue;
       if (!webglEngine.wallMode || (r >= 2 && r < state.rows - 2 && c >= 2 && c < state.cols - 2)) {
         webglEngine.setCell(r, c, true);
         if (state.cells && state.cells[r]) {
@@ -620,8 +631,9 @@ async function stamp(row: number, col: number): Promise<void> {
     quickLive.textContent = String(state.liveCells);
   } else {
     for (const [dr, dc] of rawCells) {
-      const r = ((row + dr) % state.rows + state.rows) % state.rows;
-      const c = ((col + dc) % state.cols + state.cols) % state.cols;
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) continue;
       if (state.cells && state.cells[r]) {
         state.cells[r][c] = true;
       }
@@ -1092,7 +1104,7 @@ board.addEventListener('pointermove', async (event: PointerEvent) => {
 
   const { row, col, inBounds } = cellFromEvent(event);
 
-  // Update cell inspector chip
+  // Update cell inspector chip & cursor hover highlight
   if (inBounds) {
     lastHoverCell = { row, col };
     cellInspector.hidden = false;
@@ -1102,9 +1114,16 @@ board.addEventListener('pointermove', async (event: PointerEvent) => {
     inspectorCoords.textContent = `X: ${col}, Y: ${row}`;
     inspectorState.textContent = alive ? '● Alive' : '○ Dead';
     inspectorState.style.color = alive ? 'var(--phosphor)' : 'var(--muted)';
+
+    if (webglEngine) {
+      webglEngine.setHoverCell(col, row, brushRadius, activeTool);
+    }
   } else {
     cellInspector.hidden = true;
     lastHoverCell = null;
+    if (webglEngine) {
+      webglEngine.clearHoverCell();
+    }
   }
 
   // Ghost pattern overlay
@@ -1113,8 +1132,11 @@ board.addEventListener('pointermove', async (event: PointerEvent) => {
     return;
   }
 
-  if (!painting || !inBounds) return;
-  await paintBrush(row, col, paintAlive);
+  if (painting && inBounds) {
+    await paintBrush(row, col, paintAlive);
+  } else {
+    renderGPU();
+  }
 });
 
 board.addEventListener('pointerup', (event: PointerEvent) => {
@@ -1134,8 +1156,11 @@ board.addEventListener('pointercancel', () => {
 board.addEventListener('pointerleave', () => {
   cellInspector.hidden = true;
   lastHoverCell = null;
-  if (selectedPattern && webglEngine) {
-    webglEngine.clearGhostPattern();
+  if (webglEngine) {
+    webglEngine.clearHoverCell();
+    if (selectedPattern) {
+      webglEngine.clearGhostPattern();
+    }
     renderGPU();
   }
 });

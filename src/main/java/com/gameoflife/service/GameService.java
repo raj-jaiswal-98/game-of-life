@@ -218,10 +218,12 @@ public class GameService {
             int rows = cells.length;
             int cols = cells[0].length;
             for (Patterns.Offset offset : pattern.cells()) {
-                int r = Math.floorMod(originRow + offset.row(), rows);
-                int c = Math.floorMod(originCol + offset.col(), cols);
-                if (boundaryMode != LifeEngine.WALL_MODE_ABSORBING || !LifeEngine.isWall(r, c, rows, cols)) {
-                    cells[r][c] = true;
+                int r = originRow + offset.row();
+                int c = originCol + offset.col();
+                if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                    if (boundaryMode != LifeEngine.WALL_MODE_ABSORBING || !LifeEngine.isWall(r, c, rows, cols)) {
+                        cells[r][c] = true;
+                    }
                 }
             }
             return toResponse();
